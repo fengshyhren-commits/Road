@@ -1,0 +1,3362 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>道路剖面動態生成與渲染平台</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts: Inter & Noto Sans TC -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Noto+Sans+TC:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        body {
+            font-family: 'Inter', 'Noto Sans TC', sans-serif;
+            background-color: #f1f5f9;
+            font-size: 16px;
+        }
+        .text-xs {
+            font-size: 0.875rem !important;
+            line-height: 1.35rem !important;
+        }
+        .text-sm {
+            font-size: 1rem !important;
+            line-height: 1.5rem !important;
+        }
+        [class*="text-[10px]"],
+        [class*="text-[11px]"] {
+            font-size: 0.8125rem !important;
+            line-height: 1.25rem !important;
+        }
+        select,
+        input,
+        textarea,
+        button {
+            font-size: inherit;
+        }
+        /* Custom scrollbars for slick sidebar */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f8fafc;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+        /* Drag & drop reorder indicators */
+        .drop-above {
+            box-shadow: 0 -3px 0 0 #10b981 !important;
+        }
+        .drop-below {
+            box-shadow: 0 3px 0 0 #10b981 !important;
+        }
+    </style>
+</head>
+<body class="h-screen flex flex-col overflow-hidden">
+
+    <!-- Header -->
+    <header class="bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between shadow-sm shrink-0 z-10">
+        <div class="flex items-center space-x-3">
+            <div class="bg-emerald-600 text-white p-2.5 rounded-xl shadow-md shadow-emerald-200 flex items-center justify-center">
+                <i class="fa-solid fa-road text-xl"></i>
+            </div>
+            <div>
+                <h1 class="text-xl font-bold text-slate-800 tracking-tight">道路剖面生成與渲染平台</h1>
+                <p class="text-xs text-slate-500">Road Section Dynamic Generator & Rendering Platform</p>
+            </div>
+        </div>
+        <!-- HEADER BUTTONS (Track 1) -->
+        <div class="flex items-center space-x-3">
+            <button onclick="importConfig()" class="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-sm font-medium transition duration-200 flex items-center space-x-2" title="載入先前匯出的配置 JSON 檔">
+                <i class="fa-solid fa-folder-open text-slate-500"></i>
+                <span>匯入配置</span>
+            </button>
+            <button onclick="exportConfig()" class="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-sm font-medium transition duration-200 flex items-center space-x-2" title="將目前配置存成 JSON 檔，可存檔或分享">
+                <i class="fa-solid fa-file-export text-slate-500"></i>
+                <span>匯出配置</span>
+            </button>
+            <button onclick="exportImage()" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-sm font-semibold transition duration-200 shadow-lg shadow-emerald-100 flex items-center space-x-2">
+                <i class="fa-solid fa-download"></i>
+                <span>匯出高解析剖面圖</span>
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Workspace -->
+    <main class="flex-1 flex overflow-hidden">
+        
+        <!-- Sidebar Controls -->
+        <aside class="w-[460px] bg-white border-r border-slate-200 flex flex-col h-full shrink-0 shadow-lg shadow-slate-100/50">
+            <!-- Sidebar Header -->
+            <div class="p-4 border-b border-slate-100 bg-slate-50/50 flex justify-between items-center">
+                <span class="text-sm font-bold text-slate-700 flex items-center space-x-2">
+                    <i class="fa-solid fa-sliders text-emerald-500"></i>
+                    <span>路幅車道配置與物件參數設定</span>
+                </span>
+                <span id="total-meters-badge" class="px-2.5 py-1 bg-emerald-50 text-emerald-700 border border-emerald-100 rounded-full text-xs font-bold">
+                    總寬 20.00 M
+                </span>
+            </div>
+
+            <!-- Road Name Input -->
+            <div class="px-4 py-3 border-b border-slate-100 bg-white">
+                <label class="block">
+                    <span class="text-[11px] font-bold text-slate-500 mb-1 flex items-center gap-1.5">
+                        <i class="fa-solid fa-road text-emerald-500"></i>
+                        道路名稱（路名）
+                    </span>
+                    <input id="road-name-input" type="text" maxlength="24" placeholder="例如：中山路、市民大道"
+                        class="w-full bg-white border border-slate-200 rounded-lg text-sm py-1.5 px-2.5 text-slate-700 font-semibold focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500" />
+                    <span class="block text-[10px] text-slate-400 mt-1">將顯示於路幅總寬度尺標的最左側</span>
+                </label>
+            </div>
+
+            <!-- Building / Arcade Controls -->
+            <details open class="group border-b border-stone-200 bg-gradient-to-br from-stone-50 to-amber-50/60">
+                <summary class="p-4 flex items-center justify-between cursor-pointer list-none select-none">
+                    <div>
+                        <p class="text-xs font-bold text-stone-700 flex items-center gap-2">
+                            <i class="fa-solid fa-building text-amber-700"></i>
+                            兩側騎樓建築
+                        </p>
+                        <p class="text-[11px] text-stone-500 mt-0.5">樓層可分側設定，人物會站在騎樓退縮空間內</p>
+                    </div>
+                    <span class="flex items-center gap-2 px-2 py-1 rounded-md bg-white/80 border border-stone-200 text-[10px] font-bold text-stone-500">
+                        點擊收合
+                        <i class="fa-solid fa-chevron-down transition-transform group-open:rotate-180"></i>
+                    </span>
+                </summary>
+                <div class="px-4 pb-4">
+                <div class="grid grid-cols-2 gap-2">
+                    <label class="block">
+                        <span class="block text-[11px] font-bold text-stone-500 mb-1">左側樓層</span>
+                        <select id="left-building-floors" class="w-full bg-white border border-stone-200 rounded-lg text-xs py-1.5 px-2 text-stone-700 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500">
+                            <option value="2">2 樓</option>
+                            <option value="3" selected>3 樓</option>
+                            <option value="4">4 樓</option>
+                        </select>
+                    </label>
+                    <label class="block">
+                        <span class="block text-[11px] font-bold text-stone-500 mb-1">右側樓層</span>
+                        <select id="right-building-floors" class="w-full bg-white border border-stone-200 rounded-lg text-xs py-1.5 px-2 text-stone-700 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500">
+                            <option value="2">2 樓</option>
+                            <option value="3">3 樓</option>
+                            <option value="4" selected>4 樓</option>
+                        </select>
+                    </label>
+                    <label class="block">
+                        <span class="block text-[11px] font-bold text-stone-500 mb-1">左騎樓人物</span>
+                        <select id="left-arcade-people" class="w-full bg-white border border-stone-200 rounded-lg text-xs py-1.5 px-2 text-stone-700 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500">
+                            <option value="none">無人物</option>
+                            <option value="ped1">牽狗散步</option>
+                            <option value="ped2">大人牽小孩</option>
+                            <option value="ped3" selected>城市散步</option>
+                            <option value="ped4">市民慢跑</option>
+                            <option value="ped5">提購物袋</option>
+                        </select>
+                    </label>
+                    <label class="block">
+                        <span class="block text-[11px] font-bold text-stone-500 mb-1">右騎樓人物</span>
+                        <select id="right-arcade-people" class="w-full bg-white border border-stone-200 rounded-lg text-xs py-1.5 px-2 text-stone-700 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500">
+                            <option value="none" selected>無人物</option>
+                            <option value="ped1">牽狗散步</option>
+                            <option value="ped2">大人牽小孩</option>
+                            <option value="ped3">城市散步</option>
+                            <option value="ped4">市民慢跑</option>
+                            <option value="ped5">提購物袋</option>
+                        </select>
+                    </label>
+                    <label class="block">
+                        <span class="block text-[11px] font-bold text-stone-500 mb-1">左側招牌</span>
+                        <select id="left-arcade-sign" class="w-full bg-white border border-stone-200 rounded-lg text-xs py-1.5 px-2 text-stone-700 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500">
+                            <option value="none">關閉</option>
+                            <option value="blade" selected>直式燈箱</option>
+                            <option value="round">圓形招牌</option>
+                            <option value="awning">雨棚招牌</option>
+                        </select>
+                    </label>
+                    <label class="block">
+                        <span class="block text-[11px] font-bold text-stone-500 mb-1">右側招牌</span>
+                        <select id="right-arcade-sign" class="w-full bg-white border border-stone-200 rounded-lg text-xs py-1.5 px-2 text-stone-700 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500">
+                            <option value="none">關閉</option>
+                            <option value="blade" selected>直式燈箱</option>
+                            <option value="round">圓形招牌</option>
+                            <option value="awning">雨棚招牌</option>
+                        </select>
+                    </label>
+                </div>
+                <p class="mt-2 text-[10px] leading-4 text-stone-500">
+                    比例基準：成人 1.7m・騎樓 4m・2 樓以上每層 3.4m
+                </p>
+                </div>
+            </details>
+
+            <!-- List of Segments (Scrollable) -->
+            <div id="segments-container" class="flex-1 overflow-y-auto p-4 space-y-3">
+                <!-- Dynamically injected via JS -->
+            </div>
+
+            <!-- Add Element Controls -->
+            <div class="px-4 py-2.5 border-t border-slate-100 bg-slate-50/50 space-y-1.5">
+                <p class="text-xs font-semibold text-slate-500">新增道路段元素：</p>
+                <div class="grid grid-cols-2 gap-1.5">
+                    <button onclick="addSegment('sidewalk')" class="py-1.5 px-2.5 bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-800 rounded-lg text-xs font-semibold flex items-center gap-2 transition-all">
+                        <i class="fa-solid fa-person-walking text-amber-600 w-4 text-center"></i>
+                        人行道
+                    </button>
+                    <button onclick="addSegment('facility')" class="py-1.5 px-2.5 bg-sky-50 hover:bg-sky-100 border border-sky-200 text-sky-800 rounded-lg text-xs font-semibold flex items-center gap-2 transition-all">
+                        <i class="fa-solid fa-tree text-sky-600 w-4 text-center"></i>
+                        公共設施帶
+                    </button>
+                    <button onclick="addSegment('lane')" class="py-1.5 px-2.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-800 rounded-lg text-xs font-semibold flex items-center gap-2 transition-all">
+                        <i class="fa-solid fa-car text-slate-600 w-4 text-center"></i>
+                        車道
+                    </button>
+                    <button onclick="addSegment('median')" class="py-1.5 px-2.5 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-800 rounded-lg text-xs font-semibold flex items-center gap-2 transition-all">
+                        <i class="fa-solid fa-grip-lines-vertical text-emerald-600 w-4 text-center"></i>
+                        中央分隔島
+                    </button>
+                    <button onclick="addSegment('bike')" class="col-span-2 py-1.5 px-2.5 bg-lime-50 hover:bg-lime-100 border border-lime-200 text-lime-800 rounded-lg text-xs font-semibold flex items-center gap-2 transition-all">
+                        <i class="fa-solid fa-bicycle text-lime-600 w-4 text-center"></i>
+                        自行車道
+                    </button>
+                </div>
+            </div>
+
+            <!-- Presets Panel -->
+            <div class="p-4 border-t border-slate-200 bg-white">
+                <span class="text-xs font-semibold text-slate-400 block mb-2">快速套用標準斷面：</span>
+                <div class="grid grid-cols-2 gap-2">
+                    <button onclick="applyPreset('narrow10')" class="py-1.5 px-2 border border-slate-200 hover:border-emerald-300 text-slate-600 hover:text-emerald-600 rounded text-xs font-medium text-left transition truncate">
+                        📍 10M 雙向社區巷道
+                    </button>
+                    <button onclick="applyPreset('standard15')" class="py-1.5 px-2 border border-slate-200 hover:border-emerald-300 text-slate-600 hover:text-emerald-600 rounded text-xs font-medium text-left transition truncate">
+                        📍 15M 單向雙線道
+                    </button>
+                    <button onclick="applyPreset('boulevard30')" class="py-1.5 px-2 border border-slate-200 hover:border-emerald-300 text-slate-600 hover:text-emerald-600 rounded text-xs font-medium text-left transition truncate">
+                        📍 30M 城市林蔭大道
+                    </button>
+                    <button onclick="applyPreset('classic20')" class="py-1.5 px-2 border border-emerald-200 bg-emerald-50/20 text-emerald-700 rounded text-xs font-semibold text-left transition truncate">
+                        🌟 經典 20M (原圖比例)
+                    </button>
+                </div>
+
+            </div>
+        </aside>
+
+        <!-- Center/Right Canvas Workspace -->
+        <section class="flex-1 bg-slate-100 p-6 flex flex-col overflow-hidden relative">
+            
+            <!-- Floating control helper -->
+            <div class="mb-4 flex justify-between items-center bg-white p-3 rounded-xl shadow-sm border border-slate-200/60">
+                <div class="flex items-center space-x-6">
+                    <label class="flex items-center space-x-2 text-xs font-medium text-slate-600 cursor-pointer">
+                        <input type="checkbox" id="toggle-topview" checked class="rounded border-slate-300 text-emerald-600 focus:ring-emerald-500">
+                        <span>顯示平面圖 (Top-down View)</span>
+                    </label>
+                    <label class="flex items-center space-x-2 text-xs font-medium text-slate-600 cursor-pointer">
+                        <input type="checkbox" id="toggle-dimensions" checked class="rounded border-slate-300 text-emerald-600 focus:ring-emerald-500">
+                        <span>顯示尺寸細節與輔助線</span>
+                    </label>
+                    <label class="flex items-center space-x-2 text-xs font-medium text-slate-600 cursor-pointer">
+                        <input type="checkbox" id="toggle-decorations" checked class="rounded border-slate-300 text-emerald-600 focus:ring-emerald-500">
+                        <span>啟用豐富裝飾物 (樹/人/車)</span>
+                    </label>
+                </div>
+                <div class="text-xs text-slate-500 bg-slate-100 border border-slate-200 rounded-lg px-3 py-1.5 whitespace-nowrap">
+                    <i class="fa-solid fa-eye mr-1 text-emerald-600"></i> 預覽編號不會匯出
+                </div>
+            </div>
+
+            <!-- Canvas Container -->
+            <div id="canvas-container" class="flex-1 min-h-0 bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-inner flex items-center justify-center p-4 relative">
+                <canvas id="roadCanvas" class="block shrink-0 cursor-pointer transition-shadow bg-white" title="點擊路段可跳至左側對應設定卡片"></canvas>
+                
+                <!-- Zoom & Scale Indicator (Overlay) -->
+                <div class="absolute bottom-6 right-6 bg-slate-950/80 backdrop-blur text-white py-1.5 px-3 rounded-lg text-xs font-semibold flex items-center space-x-2 shadow-md">
+                    <i class="fa-solid fa-maximize text-emerald-400"></i>
+                    <span id="scale-indicator">繪圖比例尺: 1M = 40px</span>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Embedded raster assets (data URLs) — keeps the canvas untainted so PNG export works from file:// -->
+    <script src="assets_embedded.js"></script>
+
+    <!-- Canvas Generation & Logic Script -->
+    <script>
+        // Polyfill Canvas roundRect for older embedded preview browser instances
+        if (!CanvasRenderingContext2D.prototype.roundRect) {
+            CanvasRenderingContext2D.prototype.roundRect = function (x, y, w, h, r) {
+                if (typeof r === 'undefined') r = 0;
+                if (typeof r === 'number') {
+                    r = {tl: r, tr: r, br: r, bl: r};
+                } else {
+                    var defaultRadius = {tl: 0, tr: 0, br: 0, bl: 0};
+                    for (var side in defaultRadius) {
+                        r[side] = r[side] || defaultRadius[side];
+                    }
+                }
+                this.beginPath();
+                this.moveTo(x + r.tl, y);
+                this.lineTo(x + w - r.tr, y);
+                this.quadraticCurveTo(x + w, y, x + w, y + r.tr);
+                this.lineTo(x + w - r.br, y + h);
+                this.quadraticCurveTo(x + w, y + h, x + w - r.br, y + h);
+                this.lineTo(x + r.bl, y + h);
+                this.quadraticCurveTo(x, y + h, x, y + h - r.bl);
+                this.lineTo(x, y + r.tl);
+                this.quadraticCurveTo(x, y, x + r.tl, y);
+                this.closePath();
+                return this;
+            };
+        }
+
+        // Main Application State (Perfectly reproducing the 20M image structure)
+        let segments = [
+            { id: '1', type: 'sidewalk', name: '人行道', width: 1.5, tree: false, car: 'none', ped: 'ped1', extra: 'none' },
+            { id: '2', type: 'facility', name: '公共設施帶\n整併停車', width: 2.0, tree: true, treeStyle: 'fat', car: 'none', ped: 'none', extra: 'box' },
+            { id: '3', type: 'lane', name: '車道', width: 3.25, tree: false, car: 'classic_rear', ped: 'none', extra: 'none' },
+            { id: '4', type: 'lane', name: '車道', width: 3.25, tree: false, car: 'classic_rear_purple', ped: 'none', extra: 'none' },
+            { id: '5', type: 'lane', name: '車道', width: 3.25, tree: false, car: 'modern_front_red', ped: 'none', extra: 'none' },
+            { id: '6', type: 'lane', name: '車道', width: 3.25, tree: false, car: 'modern_front_white', ped: 'none', extra: 'none' },
+            { id: '7', type: 'facility', name: '公共設施帶\n整併停車', width: 2.0, tree: true, treeStyle: 'fat', car: 'none', ped: 'none', extra: 'none' },
+            { id: '8', type: 'sidewalk', name: '人行道', width: 1.5, tree: false, car: 'none', ped: 'ped2', extra: 'none' }
+        ];
+
+        // Road name shown at the leftmost of the total-width dimension
+        let roadName = '';
+
+        // Presets List
+        const PRESETS = {
+            classic20: [
+                { id: '1', type: 'sidewalk', name: '人行道', width: 1.5, tree: false, car: 'none', ped: 'ped1', extra: 'none' },
+                { id: '2', type: 'facility', name: '公共設施帶\n整併停車', width: 2.0, tree: true, treeStyle: 'fat', car: 'none', ped: 'none', extra: 'box' },
+                { id: '3', type: 'lane', name: '車道', width: 3.25, tree: false, car: 'classic_rear', ped: 'none', extra: 'none' },
+                { id: '4', type: 'lane', name: '車道', width: 3.25, tree: false, car: 'classic_rear_purple', ped: 'none', extra: 'none' },
+                { id: '5', type: 'lane', name: '車道', width: 3.25, tree: false, car: 'modern_front_red', ped: 'none', extra: 'none' },
+                { id: '6', type: 'lane', name: '車道', width: 3.25, tree: false, car: 'modern_front_white', ped: 'none', extra: 'none' },
+                { id: '7', type: 'facility', name: '公共設施帶\n整併停車', width: 2.0, tree: true, treeStyle: 'fat', car: 'none', ped: 'none', extra: 'none' },
+                { id: '8', type: 'sidewalk', name: '人行道', width: 1.5, tree: false, car: 'none', ped: 'ped2', extra: 'none' }
+            ],
+            narrow10: [
+                { id: '1', type: 'sidewalk', name: '人行道', width: 1.5, tree: false, car: 'none', ped: 'ped1', extra: 'none' },
+                { id: '2', type: 'lane', name: '車道', width: 3.5, tree: false, car: 'classic_front', ped: 'none', extra: 'none' },
+                { id: '3', type: 'lane', name: '車道', width: 3.5, tree: false, car: 'modern_front_white', ped: 'none', extra: 'none' },
+                { id: '4', type: 'sidewalk', name: '人行道', width: 1.5, tree: false, car: 'none', ped: 'ped3', extra: 'none' }
+            ],
+            standard15: [
+                { id: '1', type: 'sidewalk', name: '人行空間', width: 2.0, tree: false, car: 'none', ped: 'ped1', extra: 'none' },
+                { id: '2', type: 'facility', name: '公共設施帶', width: 1.5, tree: true, treeStyle: 'fat', car: 'none', ped: 'none', extra: 'box' },
+                { id: '3', type: 'lane', name: '混合車道', width: 3.5, tree: false, car: 'classic_rear', ped: 'none', extra: 'none' },
+                { id: '4', type: 'lane', name: '快車道', width: 3.5, tree: false, car: 'modern_front_red', ped: 'none', extra: 'none' },
+                { id: '5', type: 'facility', name: '設施停車帶', width: 2.0, tree: true, treeStyle: 'fat', car: 'none', ped: 'none', extra: 'none' },
+                { id: '6', type: 'sidewalk', name: '人行空間', width: 2.0, tree: false, car: 'none', ped: 'ped2', extra: 'none' }
+            ],
+            boulevard30: [
+                { id: '1', type: 'sidewalk', name: '人行道', width: 3.0, tree: false, car: 'none', ped: 'ped1', extra: 'none' },
+                { id: '2', type: 'facility', name: '側向植栽帶', width: 2.5, tree: true, treeStyle: 'fat', car: 'none', ped: 'none', extra: 'box' },
+                { id: '3', type: 'lane', name: '慢車道', width: 3.5, tree: false, car: 'classic_rear_purple', ped: 'none', extra: 'none' },
+                { id: '4', type: 'lane', name: '快車道', width: 3.5, tree: false, car: 'modern_front_red', ped: 'none', extra: 'none' },
+                { id: '5', type: 'facility', name: '中央綠帶', width: 4.0, tree: true, treeStyle: 'fat', car: 'none', ped: 'none', extra: 'none' },
+                { id: '6', type: 'lane', name: '快車道', width: 3.5, tree: false, car: 'modern_front_white', ped: 'none', extra: 'none' },
+                { id: '7', type: 'lane', name: '慢車道', width: 3.5, tree: false, car: 'classic_rear', ped: 'none', extra: 'none' },
+                { id: '8', type: 'facility', name: '側向植栽帶', width: 2.5, tree: true, treeStyle: 'fat', car: 'none', ped: 'none', extra: 'none' },
+                { id: '9', type: 'sidewalk', name: '人行道', width: 4.0, tree: false, car: 'none', ped: 'ped2', extra: 'none' }
+            ]
+        };
+
+        // DOM elements references
+        const segmentsContainer = document.getElementById('segments-container');
+        const totalMetersBadge = document.getElementById('total-meters-badge');
+        const roadCanvas = document.getElementById('roadCanvas');
+        const scaleIndicator = document.getElementById('scale-indicator');
+        const ctx = roadCanvas.getContext('2d');
+
+        // Feature flags / Toggles
+        const toggleTopView = document.getElementById('toggle-topview');
+        const toggleDimensions = document.getElementById('toggle-dimensions');
+        const toggleDecorations = document.getElementById('toggle-decorations');
+        const leftBuildingFloors = document.getElementById('left-building-floors');
+        const rightBuildingFloors = document.getElementById('right-building-floors');
+        const leftArcadePeople = document.getElementById('left-arcade-people');
+        const rightArcadePeople = document.getElementById('right-arcade-people');
+        const leftArcadeSign = document.getElementById('left-arcade-sign');
+        const rightArcadeSign = document.getElementById('right-arcade-sign');
+        const roadNameInput = document.getElementById('road-name-input');
+        let activeSegmentIndex = null;
+
+        const rasterAssets = {
+            dogWalker: loadRasterAsset('assets/user-people-vehicles/person-dog-walker-side.png'),
+            cityWalker: loadRasterAsset('assets/user-people-vehicles/person-city-walker-side.png'),
+            parentChild: loadRasterAsset('assets/user-people-vehicles/person-parent-child-side.png'),
+            jogger: loadRasterAsset('assets/user-people-vehicles/person-jogger-side.png'),
+            shopper: loadRasterAsset('assets/user-people-vehicles/person-shopper-side.png'),
+            sedanFront: loadRasterAsset('assets/user-people-vehicles/car-sedan-front.png'),
+            sedanRear: loadRasterAsset('assets/user-people-vehicles/car-sedan-rear.png'),
+            sedanTop: loadRasterAsset('assets/user-people-vehicles/car-sedan-top.png'),
+            suvFront: loadRasterAsset('assets/user-people-vehicles/car-suv-front.png'),
+            suvRear: loadRasterAsset('assets/user-people-vehicles/car-suv-rear.png'),
+            suvTop: loadRasterAsset('assets/user-people-vehicles/car-suv-top.png'),
+            convertibleSide: loadRasterAsset('assets/user-people-vehicles/car-convertible-side.png'),
+            convertibleTop: loadRasterAsset('assets/user-people-vehicles/car-convertible-top.png'),
+            truckRear: loadRasterAsset('assets/user-people-vehicles/truck-rear.png'),
+            truckTop: loadRasterAsset('assets/user-people-vehicles/truck-top.png'),
+            scooterSide: loadRasterAsset('assets/user-people-vehicles/scooter-side.png'),
+            scooterAngle: loadRasterAsset('assets/user-people-vehicles/scooter-angle.png'),
+            scooterFront: loadRasterAsset('assets/user-people-vehicles/scooter-front.png'),
+            motorcycleSide: loadRasterAsset('assets/user-people-vehicles/motorcycle-side.png'),
+            motorcycleAngle: loadRasterAsset('assets/user-people-vehicles/motorcycle-angle.png'),
+            motorcycleFront: loadRasterAsset('assets/user-people-vehicles/motorcycle-front.png')
+        };
+
+        function loadRasterAsset(src) {
+            const image = new Image();
+            image.onload = () => render();
+            image.onerror = () => console.warn(`Unable to load raster asset: ${src}`);
+            // Prefer the embedded data-URL version: external file:// images taint the canvas
+            // and make toDataURL/toBlob throw SecurityError on export.
+            image.src = (window.EMBEDDED_ASSETS && window.EMBEDDED_ASSETS[src]) ? window.EMBEDDED_ASSETS[src] : src;
+            return image;
+        }
+
+        // When true, raster sprites are skipped and vector fallbacks are drawn instead
+        // (used as a last-resort export mode if the canvas is tainted).
+        let suppressRasters = false;
+
+        function isRasterReady(image) {
+            return !suppressRasters && image && image.complete && image.naturalWidth > 0;
+        }
+
+        function drawRasterAtGround(ctx, image, x, groundY, targetHeight) {
+            if (!isRasterReady(image)) return false;
+            const targetWidth = targetHeight * (image.naturalWidth / image.naturalHeight);
+            ctx.drawImage(image, x - targetWidth / 2, groundY - targetHeight, targetWidth, targetHeight);
+            return true;
+        }
+
+        function drawRasterAtGroundFacing(ctx, image, x, groundY, targetHeight, mirror = false) {
+            if (!isRasterReady(image)) return false;
+            const targetWidth = targetHeight * (image.naturalWidth / image.naturalHeight);
+            ctx.save();
+            ctx.translate(x, groundY);
+            if (mirror) ctx.scale(-1, 1);
+            ctx.drawImage(image, -targetWidth / 2, -targetHeight, targetWidth, targetHeight);
+            ctx.restore();
+            return true;
+        }
+
+        // Bind events
+        [
+            toggleTopView,
+            toggleDimensions,
+            toggleDecorations,
+            leftBuildingFloors,
+            rightBuildingFloors,
+            leftArcadePeople,
+            rightArcadePeople,
+            leftArcadeSign,
+            rightArcadeSign
+        ].forEach(el => {
+            el.addEventListener('change', () => { render(); saveState(); });
+        });
+
+        // Road name: live update as the user types
+        roadNameInput.addEventListener('input', () => { roadName = roadNameInput.value; render(); saveState(); });
+
+        // Render Left Settings Sidebar
+        function renderSidebar() {
+            segmentsContainer.innerHTML = '';
+            let totalM = 0;
+
+            segments.forEach((seg, index) => {
+                totalM += parseFloat(seg.width);
+                const widthLimits = getWidthLimits(seg);
+
+                const card = document.createElement('div');
+                card.className = `p-4 rounded-xl border transition-all ${
+                    seg.type === 'sidewalk' ? 'bg-amber-50/40 border-amber-200' :
+                    seg.type === 'facility' ? 'bg-sky-50/40 border-sky-200' :
+                    seg.type === 'median' ? 'bg-emerald-50/40 border-emerald-200' :
+                    seg.type === 'bike' ? 'bg-lime-50/40 border-lime-200' :
+                    'bg-slate-50/40 border-slate-200'
+                } cursor-default hover:shadow-md hover:-translate-y-0.5`;
+                card.dataset.index = index;
+                card.onmouseenter = () => setActiveSegment(index);
+
+                const laneRec = { min: 2.8, max: 3.5 };
+                const laneWarning = seg.type === 'lane' && (seg.width < laneRec.min - 0.001 || seg.width > laneRec.max + 0.001);
+
+                card.innerHTML = `
+                    <div class="flex items-center justify-between mb-3">
+                        <div class="flex items-center space-x-2">
+                            <span class="drag-handle cursor-grab active:cursor-grabbing text-slate-300 hover:text-slate-500 px-0.5 -ml-1" title="按住拖曳可調整路段順序">
+                                <i class="fa-solid fa-grip-vertical"></i>
+                            </span>
+                            <span class="w-6 h-6 flex items-center justify-center rounded-full bg-white border border-slate-200 text-xs font-bold text-slate-500 shadow-sm">${index + 1}</span>
+                            <span class="text-xs font-bold ${
+                                seg.type === 'sidewalk' ? 'text-amber-800' :
+                                seg.type === 'facility' ? 'text-sky-800' :
+                                seg.type === 'median' ? 'text-emerald-800' :
+                                seg.type === 'bike' ? 'text-lime-800' :
+                                'text-slate-800'
+                            }">
+                                ${seg.type === 'sidewalk' ? '🚶人行道' : seg.type === 'facility' ? '🌳設施與停車帶' : seg.type === 'median' ? '🌿中央分隔島' : seg.type === 'bike' ? '🚴自行車道' : '🚗車道'}
+                            </span>
+                        </div>
+                        <div class="flex items-center space-x-1.5">
+                            <button onclick="moveSegment(${index}, -1)" class="p-1 hover:bg-white text-slate-400 hover:text-slate-600 rounded transition border border-transparent hover:border-slate-200" title="上移">
+                                <i class="fa-solid fa-chevron-up text-xs"></i>
+                            </button>
+                            <button onclick="moveSegment(${index}, 1)" class="p-1 hover:bg-white text-slate-400 hover:text-slate-600 rounded transition border border-transparent hover:border-slate-200" title="下移">
+                                <i class="fa-solid fa-chevron-down text-xs"></i>
+                            </button>
+                            <button onclick="deleteSegment('${seg.id}')" class="p-1 hover:bg-red-50 text-red-400 hover:text-red-600 rounded transition border border-transparent hover:border-red-200" title="刪除">
+                                <i class="fa-solid fa-trash text-xs"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="space-y-3">
+                        <div>
+                            <label class="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1">自定義中文標籤文字 (支援\\n換行)</label>
+                            <textarea rows="2" onchange="updateSegment('${seg.id}', 'name', this.value)" 
+                                class="w-full text-xs px-2.5 py-1.5 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 bg-white shadow-sm font-medium text-slate-700">${seg.name}</textarea>
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-2">
+                            <div>
+                                <label class="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1">寬度 (M)</label>
+                                <input type="number" step="0.05" min="${widthLimits.min}" max="${widthLimits.max}" value="${seg.width}" id="num-width-${seg.id}"
+                                    oninput="syncWidth('${seg.id}', this.value, 'num')"
+                                    onblur="handleWidthBlur('${seg.id}', this.value)"
+                                    class="w-full text-xs px-2.5 py-1.5 rounded-lg border ${laneWarning ? 'border-amber-400 bg-amber-50/60' : 'border-slate-200 bg-white'} focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 shadow-sm font-semibold text-slate-700">
+                            </div>
+                            <div>
+                                <label class="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1">寬度微調</label>
+                                <div class="flex items-center h-full pt-1">
+                                    <input type="range" min="${widthLimits.min}" max="${widthLimits.max}" step="0.05" value="${seg.width}" id="range-width-${seg.id}"
+                                        oninput="syncWidth('${seg.id}', this.value, 'range')"
+                                        class="w-full accent-emerald-500">
+                                </div>
+                            </div>
+                        </div>
+
+                        ${seg.type === 'lane' ? `
+                        <p id="width-warn-${seg.id}" class="${laneWarning ? '' : 'hidden'} text-[10px] font-bold text-amber-600 flex items-center gap-1 -mt-1.5">
+                            <i class="fa-solid fa-triangle-exclamation"></i>
+                            超出一般車道建議寬度 ${laneRec.min}–${laneRec.max}M（教學示範用途可保留）
+                        </p>` : ''}
+
+                        <!-- Asset Options -->
+                        <div class="pt-2 border-t border-slate-200/50 flex flex-wrap gap-x-4 gap-y-1.5 text-[11px] font-medium text-slate-500">
+                            ${(seg.type !== 'sidewalk' && seg.type !== 'bike') ? `
+                            <div class="flex items-center space-x-1">
+                                <span>街道設施:</span>
+                                <select onchange="updateSegment('${seg.id}', 'streetAsset', this.value)" class="bg-white border border-slate-200 rounded text-[11px] py-1 px-2 text-slate-700 focus:outline-none focus:ring-1 focus:ring-emerald-500">
+                                    <option value="none" ${!seg.streetAsset || seg.streetAsset === 'none' ? 'selected' : ''}>無</option>
+                                    <option value="streetlight" ${seg.streetAsset === 'streetlight' ? 'selected' : ''}>路燈</option>
+                                    <option value="bus_stop" ${seg.streetAsset === 'bus_stop' ? 'selected' : ''}>公車站</option>
+                                    <option value="bus_sign" ${seg.streetAsset === 'bus_sign' ? 'selected' : ''}>公車站牌</option>
+                                </select>
+                            </div>` : ''}
+                            ${seg.type === 'facility' ? `
+                                <div class="flex items-center space-x-1">
+                                    <span>行道樹:</span>
+                                    <select onchange="updateSegment('${seg.id}', 'treeStyle', this.value)" class="bg-white border border-slate-200 rounded text-[10px] py-0.5 px-1 text-slate-600 focus:outline-none focus:ring-1 focus:ring-emerald-500">
+                                        <option value="none" ${(seg.treeStyle || (seg.tree ? 'fat' : 'none')) === 'none' ? 'selected' : ''}>無</option>
+                                        <option value="fat" ${(seg.treeStyle || (seg.tree ? 'fat' : 'none')) === 'fat' ? 'selected' : ''}>胖型樹</option>
+                                        <option value="slim" ${seg.treeStyle === 'slim' ? 'selected' : ''}>瘦型樹</option>
+                                        <option value="hedge" ${seg.treeStyle === 'hedge' ? 'selected' : ''}>綠籬(灌木叢)</option>
+                                    </select>
+                                </div>
+                                <div class="flex items-center space-x-1">
+                                    <span>附加配置:</span>
+                                    <select onchange="updateSegment('${seg.id}', 'extra', this.value)" class="bg-white border border-slate-200 rounded text-[10px] py-0.5 px-1 text-slate-600 focus:outline-none focus:ring-1 focus:ring-emerald-500">
+                                        <option value="none" ${seg.extra === 'none' ? 'selected' : ''}>無</option>
+                                        <option value="scooter_parking" ${seg.extra === 'scooter_parking' ? 'selected' : ''}>機車斜車位(頂)</option>
+                                        <option value="box" ${seg.extra === 'box' ? 'selected' : ''}>綠色公共設施箱</option>
+                                    </select>
+                                </div>
+                                <div class="flex items-center space-x-1">
+                                    <span>停放車款:</span>
+                                    <select onchange="updateSegment('${seg.id}', 'car', this.value)" class="bg-white border border-slate-200 rounded text-[10px] py-0.5 px-1 text-slate-600 focus:outline-none focus:ring-1 focus:ring-emerald-500">
+                                        <option value="none" ${seg.car === 'none' ? 'selected' : ''}>無車輛</option>
+                                        <option value="classic_rear" ${seg.car === 'classic_rear' ? 'selected' : ''}>白色轎車</option>
+                                        <option value="modern_front_white" ${seg.car === 'modern_front_white' ? 'selected' : ''}>灰色休旅車</option>
+                                        <option value="scooter" ${seg.car === 'scooter' || seg.car === 'scooter_group' ? 'selected' : ''}>機車</option>
+                                        <option value="motorcycle" ${seg.car === 'motorcycle' ? 'selected' : ''}>重型機車</option>
+                                    </select>
+                                </div>
+                            ` : ''}
+
+                            ${seg.type === 'median' ? `
+                                <div class="flex items-center space-x-1">
+                                    <span>建議寬度:</span>
+                                    <select onchange="updateSegment('${seg.id}', 'width', this.value)" class="bg-white border border-emerald-200 rounded text-[10px] py-0.5 px-1 text-emerald-800 focus:outline-none focus:ring-1 focus:ring-emerald-500">
+                                        <option value="0.5" ${Math.abs(seg.width - 0.5) < 0.01 ? 'selected' : ''}>0.5m 最小分隔帶</option>
+                                        <option value="0.8" ${Math.abs(seg.width - 0.8) < 0.01 ? 'selected' : ''}>0.8m 含公共設施</option>
+                                        <option value="1.5" ${Math.abs(seg.width - 1.5) < 0.01 ? 'selected' : ''}>1.5m 次要道路</option>
+                                        <option value="4" ${Math.abs(seg.width - 4) < 0.01 ? 'selected' : ''}>4m 主要道路</option>
+                                        <option value="${seg.width}" ${![0.5, 0.8, 1.5, 4].some(v => Math.abs(seg.width - v) < 0.01) ? 'selected' : ''}>自訂 ${seg.width}m</option>
+                                    </select>
+                                </div>
+                                <div class="flex items-center space-x-1">
+                                    <span>植栽樹型:</span>
+                                    <select onchange="updateSegment('${seg.id}', 'treeStyle', this.value)" class="bg-white border border-emerald-200 rounded text-[10px] py-0.5 px-1 text-emerald-800 focus:outline-none focus:ring-1 focus:ring-emerald-500">
+                                        <option value="none" ${(seg.treeStyle || 'none') === 'none' ? 'selected' : ''}>不種樹</option>
+                                        <option value="fat" ${seg.treeStyle === 'fat' ? 'selected' : ''}>胖型樹</option>
+                                        <option value="slim" ${seg.treeStyle === 'slim' ? 'selected' : ''}>瘦型樹</option>
+                                    </select>
+                                </div>
+                            ` : ''}
+
+                            ${seg.type === 'lane' ? `
+                                <div class="flex items-center space-x-1">
+                                    <span>展示車輛模型:</span>
+                                    <select onchange="updateSegment('${seg.id}', 'car', this.value)" class="bg-white border border-slate-200 rounded text-[10px] py-0.5 px-1 text-slate-600 focus:outline-none focus:ring-1 focus:ring-emerald-500">
+                                        <option value="none" ${seg.car === 'none' ? 'selected' : ''}>無車輛</option>
+                                        <option value="classic_rear" ${seg.car === 'classic_rear' || seg.car === 'classic_rear_purple' ? 'selected' : ''}>白色轎車</option>
+                                        <option value="modern_front_white" ${seg.car === 'modern_front_white' || seg.car === 'modern_front_red' ? 'selected' : ''}>灰色休旅車</option>
+                                        <option value="convertible" ${seg.car === 'convertible' ? 'selected' : ''}>敞篷跑車</option>
+                                        <option value="truck" ${seg.car === 'truck' ? 'selected' : ''}>貨車</option>
+                                        <option value="scooter" ${seg.car === 'scooter' ? 'selected' : ''}>機車</option>
+                                        <option value="motorcycle" ${seg.car === 'motorcycle' ? 'selected' : ''}>重型機車</option>
+                                    </select>
+                                </div>
+                                <div class="flex items-center space-x-1">
+                                    <span>行駛方向:</span>
+                                    <select onchange="updateSegment('${seg.id}', 'carDirection', this.value)" class="bg-white border border-slate-200 rounded text-[10px] py-0.5 px-1 text-slate-600 focus:outline-none focus:ring-1 focus:ring-emerald-500">
+                                        <option value="toward" ${(seg.carDirection || (seg.car.includes('rear') ? 'away' : 'toward')) === 'toward' ? 'selected' : ''}>朝向視線（看車頭）</option>
+                                        <option value="away" ${(seg.carDirection || (seg.car.includes('rear') ? 'away' : 'toward')) === 'away' ? 'selected' : ''}>背向視線（看車尾）</option>
+                                    </select>
+                                </div>
+                            ` : ''}
+
+                            ${seg.type === 'bike' ? `
+                                <div class="flex items-center space-x-1">
+                                    <span>展示自行車:</span>
+                                    <select onchange="updateSegment('${seg.id}', 'car', this.value)" class="bg-white border border-lime-200 rounded text-[10px] py-0.5 px-1 text-lime-800 focus:outline-none focus:ring-1 focus:ring-emerald-500">
+                                        <option value="none" ${seg.car === 'none' ? 'selected' : ''}>無</option>
+                                        <option value="bike" ${seg.car === 'bike' ? 'selected' : ''}>自行車</option>
+                                    </select>
+                                </div>
+                            ` : ''}
+
+                            ${seg.type === 'sidewalk' ? `
+                                <div class="flex items-center space-x-1">
+                                    <span>行人剪影配置:</span>
+                                    <select onchange="updateSegment('${seg.id}', 'ped', this.value)" class="bg-white border border-slate-200 rounded text-[10px] py-0.5 px-1 text-slate-600 focus:outline-none focus:ring-1 focus:ring-emerald-500">
+                                        <option value="none" ${seg.ped === 'none' ? 'selected' : ''}>無</option>
+                                        <option value="ped1" ${seg.ped === 'ped1' ? 'selected' : ''}>牽狗散步</option>
+                                        <option value="ped2" ${seg.ped === 'ped2' ? 'selected' : ''}>大人牽小孩</option>
+                                        <option value="ped3" ${seg.ped === 'ped3' ? 'selected' : ''}>城市散步</option>
+                                        <option value="ped4" ${seg.ped === 'ped4' ? 'selected' : ''}>市民慢跑</option>
+                                        <option value="ped5" ${seg.ped === 'ped5' ? 'selected' : ''}>提購物袋</option>
+                                        <option value="cyclist" ${seg.ped === 'cyclist' ? 'selected' : ''}>騎自行車</option>
+                                    </select>
+                                </div>
+                            ` : ''}
+                        </div>
+                    </div>
+                `;
+
+                // --- Drag & Drop reorder wiring (handle = grip icon only, so inputs stay usable) ---
+                const handle = card.querySelector('.drag-handle');
+                handle.addEventListener('mousedown', () => { card.draggable = true; });
+                card.addEventListener('dragstart', (e) => {
+                    dragSrcIndex = index;
+                    e.dataTransfer.effectAllowed = 'move';
+                    setTimeout(() => card.classList.add('opacity-40'), 0);
+                });
+                card.addEventListener('dragend', () => {
+                    card.draggable = false;
+                    card.classList.remove('opacity-40');
+                    clearDropIndicators();
+                    dragSrcIndex = null;
+                });
+                card.addEventListener('dragover', (e) => {
+                    if (dragSrcIndex === null) return;
+                    e.preventDefault();
+                    e.dataTransfer.dropEffect = 'move';
+                    const rect = card.getBoundingClientRect();
+                    const before = (e.clientY - rect.top) < rect.height / 2;
+                    clearDropIndicators();
+                    if (index !== dragSrcIndex) {
+                        card.classList.add(before ? 'drop-above' : 'drop-below');
+                    }
+                });
+                card.addEventListener('drop', (e) => {
+                    if (dragSrcIndex === null) return;
+                    e.preventDefault();
+                    const rect = card.getBoundingClientRect();
+                    const before = (e.clientY - rect.top) < rect.height / 2;
+                    performDrop(index, before);
+                });
+
+                segmentsContainer.appendChild(card);
+            });
+
+            // Update Header Total Badge
+            totalMetersBadge.innerText = `總寬 ${totalM.toFixed(2)} M`;
+        }
+
+        // --- DRAG & DROP REORDER SUPPORT ---
+        let dragSrcIndex = null;
+
+        function clearDropIndicators() {
+            segmentsContainer.querySelectorAll('.drop-above, .drop-below').forEach(el => {
+                el.classList.remove('drop-above', 'drop-below');
+            });
+        }
+
+        function performDrop(targetIndex, before) {
+            if (dragSrcIndex === null) return;
+            let insertAt = before ? targetIndex : targetIndex + 1;
+            if (dragSrcIndex < insertAt) insertAt--;
+            if (insertAt !== dragSrcIndex) {
+                const [moved] = segments.splice(dragSrcIndex, 1);
+                segments.splice(insertAt, 0, moved);
+                renderSidebar();
+                render();
+                saveState();
+            }
+            dragSrcIndex = null;
+            clearDropIndicators();
+        }
+
+        // Clear segment highlight when the cursor leaves the whole list (instead of per-card flicker)
+        segmentsContainer.addEventListener('mouseleave', () => clearActiveSegment());
+
+        function setActiveSegment(index) {
+            if (activeSegmentIndex === index) return; // Skip redundant re-renders while hovering
+            activeSegmentIndex = index;
+            render();
+        }
+
+        function clearActiveSegment() {
+            if (activeSegmentIndex === null) return;
+            activeSegmentIndex = null;
+            render();
+        }
+
+        // --- PERSISTENCE / UNDO ---
+        const STORAGE_KEY = 'roadSectionPlatformState_v1';
+        let lastSnapshot = null; // For one-step undo (delete / preset overwrite)
+
+        function getBuildingSettings() {
+            return {
+                leftFloors: leftBuildingFloors.value,
+                rightFloors: rightBuildingFloors.value,
+                leftPeople: leftArcadePeople.value,
+                rightPeople: rightArcadePeople.value,
+                leftSign: leftArcadeSign.value,
+                rightSign: rightArcadeSign.value,
+                roadName: roadName
+            };
+        }
+
+        function applyBuildingSettings(b) {
+            if (!b) return;
+            if (b.leftFloors) leftBuildingFloors.value = b.leftFloors;
+            if (b.rightFloors) rightBuildingFloors.value = b.rightFloors;
+            if (b.leftPeople) leftArcadePeople.value = b.leftPeople;
+            if (b.rightPeople) rightArcadePeople.value = b.rightPeople;
+            if (b.leftSign) leftArcadeSign.value = b.leftSign;
+            if (b.rightSign) rightArcadeSign.value = b.rightSign;
+            if (b.roadName !== undefined) { roadName = b.roadName; roadNameInput.value = b.roadName; }
+        }
+
+        function saveState() {
+            try {
+                localStorage.setItem(STORAGE_KEY, JSON.stringify({
+                    segments,
+                    building: getBuildingSettings()
+                }));
+            } catch (e) { /* Storage unavailable (private mode etc.) — silently skip */ }
+        }
+
+        function loadState() {
+            try {
+                const raw = localStorage.getItem(STORAGE_KEY);
+                if (!raw) return false;
+                const data = JSON.parse(raw);
+                if (!Array.isArray(data.segments) || data.segments.length === 0) return false;
+                segments = data.segments;
+                applyBuildingSettings(data.building);
+                return true;
+            } catch (e) { return false; }
+        }
+
+        function snapshotState() {
+            lastSnapshot = JSON.stringify({ segments, building: getBuildingSettings() });
+        }
+
+        function undoLastAction() {
+            if (!lastSnapshot) return;
+            const data = JSON.parse(lastSnapshot);
+            segments = data.segments;
+            applyBuildingSettings(data.building);
+            lastSnapshot = null;
+            renderSidebar();
+            render();
+            saveState();
+            showToast('已復原至上一個配置', 'info');
+        }
+
+        // --- CONFIG EXPORT / IMPORT (JSON) ---
+        function exportConfig() {
+            const totalM = segments.reduce((sum, s) => sum + s.width, 0).toFixed(1);
+            const payload = {
+                app: '道路剖面生成與渲染平台',
+                version: 1,
+                exportedAt: new Date().toISOString(),
+                segments,
+                building: getBuildingSettings()
+            };
+            const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.download = `道路剖面配置_${segments.length}區段_${totalM}M.json`;
+            a.href = url;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            showToast('配置 JSON 已匯出，可存檔或分享', 'success');
+        }
+
+        function importConfig() {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = '.json,application/json';
+            input.onchange = () => {
+                const file = input.files && input.files[0];
+                if (!file) return;
+                const reader = new FileReader();
+                reader.onload = () => {
+                    try {
+                        const data = JSON.parse(reader.result);
+                        const segs = Array.isArray(data) ? data : data.segments;
+                        if (!Array.isArray(segs) || segs.length === 0 || !segs.every(s => s && s.type && s.width)) {
+                            showToast('檔案格式不正確，匯入失敗', 'error');
+                            return;
+                        }
+                        snapshotState();
+                        segments = segs;
+                        if (!Array.isArray(data)) applyBuildingSettings(data.building);
+                        renderSidebar();
+                        render();
+                        saveState();
+                        showToast('已匯入配置！', 'success', '復原', undoLastAction);
+                    } catch (e) {
+                        showToast('無法解析 JSON 檔案', 'error');
+                    }
+                };
+                reader.readAsText(file);
+            };
+            input.click();
+        }
+
+        // Action Functions
+        function addSegment(type) {
+            const id = Math.random().toString(36).substr(2, 9);
+            let name = '新區塊';
+            let width = 2.0;
+
+            if (type === 'sidewalk') {
+                name = '人行道';
+                width = 1.5;
+            } else if (type === 'facility') {
+                name = '公共設施帶\n整併停車';
+                width = 2.0;
+            } else if (type === 'lane') {
+                name = '車道';
+                width = 3.25;
+            } else if (type === 'median') {
+                name = '中央分隔島';
+                width = 1.5;
+            } else if (type === 'bike') {
+                name = '自行車道';
+                width = 1.8;
+            }
+
+            segments.push({
+                id,
+                type,
+                name,
+                width,
+                tree: type === 'facility',
+                treeStyle: type === 'facility' ? 'fat' : 'none',
+                car: type === 'lane' ? 'modern_front_white' : type === 'bike' ? 'bike' : 'none',
+                ped: type === 'sidewalk' ? 'ped1' : 'none',
+                extra: 'none',
+                streetAsset: 'none',
+                carDirection: type === 'lane' ? 'toward' : undefined
+            });
+
+            renderSidebar();
+            render();
+            saveState();
+            // Scroll the list to the newly added card so it is immediately visible
+            if (segmentsContainer.lastElementChild) {
+                segmentsContainer.lastElementChild.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            }
+        }
+
+        function deleteSegment(id) {
+            const seg = segments.find(s => s.id === id);
+            snapshotState();
+            segments = segments.filter(s => s.id !== id);
+            renderSidebar();
+            render();
+            saveState();
+            showToast(`已刪除「${(seg ? seg.name : '路段').split('\n')[0]}」`, 'info', '復原', undoLastAction);
+        }
+
+        // Keep standard field updates (names, select menus)
+        function updateSegment(id, key, value) {
+            const index = segments.findIndex(seg => seg.id === id);
+            if (index !== -1) {
+                if (key === 'width') {
+                    const limits = getWidthLimits(segments[index]);
+                    const parsedWidth = parseFloat(value);
+                    segments[index].width = Math.max(
+                        limits.min,
+                        Math.min(limits.max, isNaN(parsedWidth) ? limits.min : parsedWidth)
+                    );
+                } else if (key === 'treeStyle') {
+                    segments[index].treeStyle = value;
+                    segments[index].tree = value !== 'none';
+                } else if (key === 'tree') {
+                    segments[index][key] = value;
+                } else {
+                    segments[index][key] = value;
+                }
+                renderSidebar();
+                render();
+                saveState();
+            }
+        }
+
+        function getWidthLimits(seg) {
+            // Lanes allow a wider experimental range for teaching demos;
+            // values outside the recommended 2.8–3.5M show an inline warning instead of being blocked.
+            if (seg.type === 'lane') return { min: 2.0, max: 8 };
+            if (seg.type === 'bike') return { min: 1, max: 5 };
+            if (seg.type === 'sidewalk') return { min: 1, max: 15 };
+            return { min: 0.5, max: 15 };
+        }
+
+        // High-performance real-time synchronization specifically for typed inputs (solves input focus loss)
+        function syncWidth(id, value, source) {
+            const index = segments.findIndex(seg => seg.id === id);
+            if (index !== -1) {
+                let parsedVal = parseFloat(value);
+                // Return early if the user is typing/editing decimals (e.g. "2.") to prevent parsing crash
+                if (isNaN(parsedVal)) return;
+                const limits = getWidthLimits(segments[index]);
+                parsedVal = Math.max(limits.min, Math.min(limits.max, parsedVal));
+
+                // Update model memory
+                segments[index].width = parsedVal;
+
+                // Instantly sync peer input control visually without re-creating DOM elements
+                if (source === 'num') {
+                    const rangeInput = document.getElementById(`range-width-${id}`);
+                    if (rangeInput) rangeInput.value = parsedVal;
+                } else if (source === 'range') {
+                    const numInput = document.getElementById(`num-width-${id}`);
+                    if (numInput) numInput.value = parsedVal;
+                }
+
+                // Live-toggle lane width recommendation warning without DOM rebuild
+                if (segments[index].type === 'lane') {
+                    const warnEl = document.getElementById(`width-warn-${id}`);
+                    const numEl = document.getElementById(`num-width-${id}`);
+                    const outOfRec = parsedVal < 2.799 || parsedVal > 3.501;
+                    if (warnEl) warnEl.classList.toggle('hidden', !outOfRec);
+                    if (numEl) {
+                        numEl.classList.toggle('border-amber-400', outOfRec);
+                        numEl.classList.toggle('bg-amber-50/60', outOfRec);
+                        numEl.classList.toggle('border-slate-200', !outOfRec);
+                        numEl.classList.toggle('bg-white', !outOfRec);
+                    }
+                }
+
+                // Smoothly update top-level metrics
+                let totalM = segments.reduce((sum, s) => sum + s.width, 0);
+                totalMetersBadge.innerText = `總寬 ${totalM.toFixed(2)} M`;
+
+                // Re-render only canvas graphics to keep standard UI completely functional
+                render();
+                saveState();
+            }
+        }
+
+        // Apply strict limit guidelines on losing input focus
+        function handleWidthBlur(id, value) {
+            const index = segments.findIndex(seg => seg.id === id);
+            if (index !== -1) {
+                let parsedVal = parseFloat(value);
+                const limits = getWidthLimits(segments[index]);
+                if (isNaN(parsedVal) || parsedVal < limits.min) {
+                    parsedVal = limits.min;
+                } else if (parsedVal > limits.max) {
+                    parsedVal = limits.max;
+                }
+                segments[index].width = parsedVal;
+
+                // Perform safe structural re-render to align values
+                renderSidebar();
+                render();
+                saveState();
+            }
+        }
+
+        function moveSegment(index, direction) {
+            const targetIndex = index + direction;
+            if (targetIndex >= 0 && targetIndex < segments.length) {
+                const temp = segments[index];
+                segments[index] = segments[targetIndex];
+                segments[targetIndex] = temp;
+                renderSidebar();
+                render();
+                saveState();
+            }
+        }
+
+        function applyPreset(presetKey) {
+            if (PRESETS[presetKey]) {
+                snapshotState();
+                segments = JSON.parse(JSON.stringify(PRESETS[presetKey]));
+                renderSidebar();
+                render();
+                saveState();
+                showToast("已載入指定道路配置！", "success", "復原", undoLastAction);
+            }
+        }
+
+        // Custom elegant premium non-blocking toast alert (Avoid forbidden alert())
+        // Optional actionLabel/actionFn renders an inline action button (e.g. 復原)
+        let activeToast = null;
+        function showToast(message, type = 'success', actionLabel = null, actionFn = null) {
+            if (activeToast) { activeToast.remove(); activeToast = null; }
+            const toast = document.createElement('div');
+            toast.className = `fixed bottom-24 left-1/2 -translate-x-1/2 px-4 py-3 rounded-2xl shadow-xl text-xs font-bold z-50 transition-all duration-300 transform translate-y-3 opacity-0 flex items-center space-x-2 border ${
+                type === 'success' ? 'bg-emerald-600 text-white border-emerald-500 shadow-emerald-200' :
+                type === 'error' ? 'bg-rose-600 text-white border-rose-500 shadow-rose-200' :
+                'bg-slate-900 text-white border-slate-800 shadow-slate-950/20'
+            }`;
+
+            toast.innerHTML = `
+                <i class="fa-solid ${type === 'success' ? 'fa-circle-check' : 'fa-circle-info'} text-sm"></i>
+                <span>${message}</span>
+            `;
+
+            if (actionLabel && typeof actionFn === 'function') {
+                const actionBtn = document.createElement('button');
+                actionBtn.className = 'ml-2 px-2.5 py-1 rounded-lg bg-white/20 hover:bg-white/35 border border-white/40 text-white text-xs font-bold transition';
+                actionBtn.textContent = actionLabel;
+                actionBtn.onclick = () => {
+                    actionFn();
+                    toast.remove();
+                    activeToast = null;
+                };
+                toast.appendChild(actionBtn);
+            }
+
+            document.body.appendChild(toast);
+            activeToast = toast;
+
+            // Animate In
+            setTimeout(() => {
+                toast.classList.remove('translate-y-3', 'opacity-0');
+            }, 50);
+
+            // Animate Out & Destroy (longer linger when an action is attached)
+            setTimeout(() => {
+                toast.classList.add('translate-y-3', 'opacity-0');
+                setTimeout(() => { toast.remove(); if (activeToast === toast) activeToast = null; }, 300);
+            }, actionLabel ? 6000 : 3200);
+        }
+
+        // Render beautiful hand-drawn geometric watercolor tree exactly like the original 20M image
+        function drawArtsyTree(ctx, x, y, scale, style = "fat") {
+            ctx.save();
+            ctx.translate(x, y);
+
+            if (style === "hedge") {
+                // Low clipped hedge / shrub mass (~1m tall), same watercolor language as the trees
+                // Overlapping translucent green lobes
+                ctx.fillStyle = "rgba(182, 219, 168, 0.55)";
+                ctx.beginPath();
+                ctx.ellipse(-22 * scale, -16 * scale, 18 * scale, 15 * scale, 0, 0, Math.PI * 2);
+                ctx.ellipse(0, -20 * scale, 20 * scale, 18 * scale, 0, 0, Math.PI * 2);
+                ctx.ellipse(22 * scale, -15 * scale, 17 * scale, 14 * scale, 0, 0, Math.PI * 2);
+                ctx.fill();
+
+                ctx.fillStyle = "rgba(134, 183, 148, 0.5)";
+                ctx.beginPath();
+                ctx.ellipse(-10 * scale, -13 * scale, 16 * scale, 12 * scale, 0, 0, Math.PI * 2);
+                ctx.ellipse(13 * scale, -14 * scale, 15 * scale, 12 * scale, 0, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Ink-sketch outline strokes (loose bumps along the top)
+                ctx.strokeStyle = "#40513b";
+                ctx.lineWidth = 1.4;
+                ctx.lineCap = "round";
+                ctx.beginPath();
+                ctx.moveTo(-38 * scale, 0);
+                ctx.quadraticCurveTo(-40 * scale, -22 * scale, -24 * scale, -28 * scale);
+                ctx.quadraticCurveTo(-14 * scale, -38 * scale, 0, -36 * scale);
+                ctx.quadraticCurveTo(14 * scale, -40 * scale, 24 * scale, -28 * scale);
+                ctx.quadraticCurveTo(40 * scale, -24 * scale, 38 * scale, 0);
+                ctx.stroke();
+
+                // Tiny leaf texture ticks
+                ctx.lineWidth = 0.8;
+                ctx.strokeStyle = "rgba(64, 81, 59, 0.65)";
+                ctx.beginPath();
+                ctx.moveTo(-20 * scale, -18 * scale); ctx.lineTo(-16 * scale, -22 * scale);
+                ctx.moveTo(-4 * scale, -26 * scale); ctx.lineTo(0, -30 * scale);
+                ctx.moveTo(14 * scale, -20 * scale); ctx.lineTo(18 * scale, -24 * scale);
+                ctx.stroke();
+
+                // Soil base
+                ctx.fillStyle = "#8d8276";
+                ctx.beginPath();
+                ctx.ellipse(0, 0, 30 * scale, 2.5 * scale, 0, 0, Math.PI * 2);
+                ctx.fill();
+
+                ctx.restore();
+                return;
+            }
+
+            if (style === "slim") {
+                ctx.scale(0.58, 1.08);
+            }
+
+            // 1. Draw overlapping translucent geometric watercolor canopies (Soft geometric polygons)
+            // Left Olive Canopy (Soft Green)
+            ctx.fillStyle = "rgba(182, 219, 168, 0.45)"; // Soft olive-green
+            ctx.beginPath();
+            ctx.moveTo(-15 * scale, -120 * scale);
+            ctx.lineTo(25 * scale, -135 * scale);
+            ctx.lineTo(55 * scale, -110 * scale);
+            ctx.lineTo(45 * scale, -60 * scale);
+            ctx.lineTo(25 * scale, -35 * scale);
+            ctx.lineTo(-25 * scale, -35 * scale);
+            ctx.lineTo(-50 * scale, -60 * scale);
+            ctx.lineTo(-55 * scale, -105 * scale);
+            ctx.closePath();
+            ctx.fill();
+
+            // Overlapping Blush Peach/Pink Canopy (like hand-colored overlays)
+            ctx.fillStyle = "rgba(246, 210, 210, 0.45)"; // Soft blush peach/pink
+            ctx.beginPath();
+            ctx.moveTo(15 * scale, -130 * scale);
+            ctx.lineTo(55 * scale, -132 * scale);
+            ctx.lineTo(70 * scale, -95 * scale);
+            ctx.lineTo(55 * scale, -55 * scale);
+            ctx.lineTo(15 * scale, -40 * scale);
+            ctx.lineTo(-35 * scale, -55 * scale);
+            ctx.lineTo(-15 * scale, -100 * scale);
+            ctx.closePath();
+            ctx.fill();
+
+            // 2. Ink-sketch styled organic fine trunk and branches
+            ctx.strokeStyle = "#403a35"; // Charcoal sketch color
+            ctx.lineWidth = 1.8;
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+
+            // Main trunk
+            ctx.beginPath();
+            ctx.moveTo(0, 0);
+            ctx.quadraticCurveTo(-2 * scale, -25 * scale, 0, -55 * scale);
+            ctx.stroke();
+
+            // Branch Split Left
+            ctx.beginPath();
+            ctx.moveTo(0, -55 * scale);
+            ctx.bezierCurveTo(-15 * scale, -65 * scale, -28 * scale, -75 * scale, -38 * scale, -90 * scale);
+            ctx.stroke();
+
+            // Branch Split Center
+            ctx.beginPath();
+            ctx.moveTo(0, -55 * scale);
+            ctx.bezierCurveTo(5 * scale, -70 * scale, 8 * scale, -88 * scale, -2 * scale, -110 * scale);
+            ctx.stroke();
+
+            // Branch Split Right
+            ctx.beginPath();
+            ctx.moveTo(0, -55 * scale);
+            ctx.bezierCurveTo(15 * scale, -63 * scale, 28 * scale, -80 * scale, 35 * scale, -95 * scale);
+            ctx.stroke();
+
+            // Secondary sketch details (ultra fine lines to replicate raw pencil texture)
+            ctx.lineWidth = 0.8;
+            ctx.strokeStyle = "rgba(64, 58, 53, 0.7)";
+            
+            // Sub branches left
+            ctx.beginPath();
+            ctx.moveTo(-18 * scale, -70 * scale);
+            ctx.quadraticCurveTo(-32 * scale, -72 * scale, -42 * scale, -82 * scale);
+            ctx.moveTo(-28 * scale, -80 * scale);
+            ctx.quadraticCurveTo(-34 * scale, -90 * scale, -32 * scale, -105 * scale);
+            
+            // Sub branches right
+            ctx.moveTo(15 * scale, -62 * scale);
+            ctx.quadraticCurveTo(28 * scale, -65 * scale, 38 * scale, -75 * scale);
+            ctx.moveTo(24 * scale, -76 * scale);
+            ctx.quadraticCurveTo(34 * scale, -86 * scale, 40 * scale, -100 * scale);
+            ctx.stroke();
+
+            // Earth soil support mound at base
+            ctx.fillStyle = "#8d8276";
+            ctx.beginPath();
+            ctx.ellipse(0, 0, 8 * scale, 2 * scale, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.restore();
+        }
+
+        // Draw elegant high-design Beetle Car (front view) matching image_5d5b60.png perfectly
+        function drawClassicCarFront(ctx, x, y, scale, bodyColor) {
+            ctx.save();
+            ctx.translate(x, y);
+
+            // Set up clean line style
+            ctx.strokeStyle = "#383c44";
+            ctx.lineWidth = 1.6;
+
+            // 1. Soft ambient ground shadow
+            ctx.fillStyle = "rgba(15, 23, 42, 0.15)";
+            ctx.beginPath();
+            ctx.ellipse(0, -2 * scale, 31 * scale, 4 * scale, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            // 2. Tires visible at bottom corners
+            ctx.fillStyle = "#2c2d30";
+            ctx.beginPath();
+            ctx.roundRect(-24 * scale, -5.5 * scale, 7.5 * scale, 5.5 * scale, 1.5);
+            ctx.roundRect(16.5 * scale, -5.5 * scale, 7.5 * scale, 5.5 * scale, 1.5);
+            ctx.fill();
+
+            // 3. Round Fender Flares (Side Wheel Arches)
+            ctx.fillStyle = bodyColor;
+            ctx.beginPath();
+            ctx.arc(-18 * scale, -9 * scale, 8 * scale, Math.PI, 0, false);
+            ctx.fill();
+            ctx.stroke();
+
+            ctx.beginPath();
+            ctx.arc(18 * scale, -9 * scale, 8 * scale, Math.PI, 0, false);
+            ctx.fill();
+            ctx.stroke();
+
+            // 4. Main rounded body chassis
+            ctx.beginPath();
+            ctx.moveTo(-25 * scale, -5.5 * scale);
+            ctx.bezierCurveTo(-26 * scale, -21 * scale, -21 * scale, -26 * scale, -18 * scale, -26 * scale);
+            ctx.lineTo(18 * scale, -26 * scale);
+            ctx.bezierCurveTo(21 * scale, -26 * scale, 26 * scale, -21 * scale, 25 * scale, -5.5 * scale);
+            ctx.closePath();
+            ctx.fill();
+            ctx.stroke();
+
+            // 5. Classic Beetle central curved bonnet/hood
+            ctx.beginPath();
+            ctx.moveTo(-13 * scale, -26 * scale);
+            ctx.bezierCurveTo(-14 * scale, -8 * scale, -12 * scale, -5.5 * scale, 0, -5.5 * scale);
+            ctx.bezierCurveTo(12 * scale, -5.5 * scale, 14 * scale, -8 * scale, 13 * scale, -26 * scale);
+            ctx.closePath();
+            ctx.fill();
+            ctx.stroke();
+
+            // Distinctive center chrome hood line
+            ctx.beginPath();
+            ctx.moveTo(0, -26 * scale);
+            ctx.lineTo(0, -6 * scale);
+            ctx.stroke();
+
+            // 6. Round greenhouse roof cabin
+            ctx.beginPath();
+            ctx.moveTo(-16 * scale, -26 * scale);
+            ctx.bezierCurveTo(-13 * scale, -44 * scale, -10 * scale, -46 * scale, 0, -46 * scale);
+            ctx.bezierCurveTo(10 * scale, -46 * scale, 13 * scale, -44 * scale, 16 * scale, -26 * scale);
+            ctx.closePath();
+            ctx.fill();
+            ctx.stroke();
+
+            // 7. Large curved front windshield
+            ctx.fillStyle = "rgba(45, 55, 72, 0.85)"; // Tinted windshield glass
+            ctx.beginPath();
+            ctx.moveTo(-12.5 * scale, -28 * scale);
+            ctx.bezierCurveTo(-10 * scale, -41 * scale, -7 * scale, -42 * scale, 0, -42 * scale);
+            ctx.bezierCurveTo(7 * scale, -42 * scale, 10 * scale, -41 * scale, 12.5 * scale, -28 * scale);
+            ctx.closePath();
+            ctx.fill();
+            ctx.stroke();
+
+            // Rearview mirror inside windshield
+            ctx.fillStyle = "#94a3b8";
+            ctx.beginPath();
+            ctx.roundRect(-2.5 * scale, -41 * scale, 5 * scale, 1.8 * scale, 0.5);
+            ctx.fill();
+            ctx.strokeStyle = "#ffffff";
+            ctx.lineWidth = 0.5;
+            ctx.beginPath();
+            ctx.moveTo(0, -42 * scale);
+            ctx.lineTo(0, -41 * scale);
+            ctx.stroke();
+
+            // Reset standard border width
+            ctx.strokeStyle = "#383c44";
+            ctx.lineWidth = 1.6;
+
+            // 8. Over-sized circular headlights with inner glass reflection
+            // Outer Ring
+            ctx.fillStyle = "#cbd5e1";
+            ctx.beginPath();
+            ctx.arc(-18.5 * scale, -13.5 * scale, 4.8 * scale, 0, Math.PI * 2);
+            ctx.arc(18.5 * scale, -13.5 * scale, 4.8 * scale, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+
+            // Inner light bulb
+            ctx.fillStyle = "#e0f2fe"; // Light sky reflection
+            ctx.beginPath();
+            ctx.arc(-18.5 * scale, -13.5 * scale, 3.6 * scale, 0, Math.PI * 2);
+            ctx.arc(18.5 * scale, -13.5 * scale, 3.6 * scale, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+
+            // Light highlight glare
+            ctx.fillStyle = "#ffffff";
+            ctx.beginPath();
+            ctx.arc(-19.5 * scale, -14.5 * scale, 1 * scale, 0, Math.PI * 2);
+            ctx.arc(17.5 * scale, -14.5 * scale, 1 * scale, 0, Math.PI * 2);
+            ctx.fill();
+
+            // 9. Retro metallic horizontal bumper
+            ctx.fillStyle = "#e2e8f0";
+            ctx.beginPath();
+            ctx.roundRect(-21 * scale, -9 * scale, 42 * scale, 3.2 * scale, 1.5);
+            ctx.fill();
+            ctx.stroke();
+
+            // Thin indicator lamps built into bumper
+            ctx.fillStyle = "#f97316";
+            ctx.beginPath();
+            ctx.roundRect(-18 * scale, -8.2 * scale, 4 * scale, 1.5 * scale, 0.5);
+            ctx.roundRect(14 * scale, -8.2 * scale, 4 * scale, 1.5 * scale, 0.5);
+            ctx.fill();
+
+            ctx.restore();
+        }
+
+        // Draw classic retro sedan (rear view)
+        function drawClassicCarRear(ctx, x, y, scale, bodyColor) {
+            ctx.save();
+            ctx.translate(x, y);
+
+            ctx.strokeStyle = "#333a42";
+            ctx.lineWidth = 1.6;
+
+            // Tire shadow
+            ctx.fillStyle = "rgba(15, 23, 42, 0.12)";
+            ctx.beginPath();
+            ctx.ellipse(0, -2 * scale, 28 * scale, 4 * scale, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Tires
+            ctx.fillStyle = "#2d3748";
+            ctx.beginPath();
+            ctx.roundRect(-24 * scale, -6 * scale, 7 * scale, 6 * scale, 2);
+            ctx.roundRect(17 * scale, -6 * scale, 7 * scale, 6 * scale, 2);
+            ctx.fill();
+
+            // Body
+            ctx.fillStyle = bodyColor;
+            ctx.beginPath();
+            ctx.roundRect(-25 * scale, -26 * scale, 50 * scale, 20 * scale, 4);
+            ctx.fill();
+            ctx.stroke();
+
+            // Cabin Roof
+            ctx.beginPath();
+            ctx.moveTo(-18 * scale, -26 * scale);
+            ctx.lineTo(-13 * scale, -44 * scale);
+            ctx.lineTo(13 * scale, -44 * scale);
+            ctx.lineTo(18 * scale, -26 * scale);
+            ctx.closePath();
+            ctx.fill();
+            ctx.stroke();
+
+            // Rear window
+            ctx.fillStyle = "#1e293b";
+            ctx.beginPath();
+            ctx.moveTo(-15 * scale, -28 * scale);
+            ctx.lineTo(-11 * scale, -41 * scale);
+            ctx.lineTo(11 * scale, -41 * scale);
+            ctx.lineTo(15 * scale, -28 * scale);
+            ctx.closePath();
+            ctx.fill();
+            ctx.stroke();
+
+            // Cute retro red taillights (semi-circular)
+            ctx.fillStyle = "#ef4444";
+            ctx.beginPath();
+            ctx.arc(-20 * scale, -18 * scale, 3 * scale, Math.PI, 0);
+            ctx.arc(20 * scale, -18 * scale, 3 * scale, Math.PI, 0);
+            ctx.fill();
+            ctx.stroke();
+
+            // License plate
+            ctx.fillStyle = "#fafafa";
+            ctx.beginPath();
+            ctx.roundRect(-5 * scale, -15 * scale, 10 * scale, 4 * scale, 1);
+            ctx.fill();
+            ctx.stroke();
+
+            ctx.restore();
+        }
+
+        // Draw modern sedan (front view - sleek red/white cars)
+        function drawModernCarFront(ctx, x, y, scale, bodyColor) {
+            ctx.save();
+            ctx.translate(x, y);
+
+            ctx.strokeStyle = "#1e293b";
+            ctx.lineWidth = 1.6;
+
+            // Ground shadow
+            ctx.fillStyle = "rgba(15, 23, 42, 0.15)";
+            ctx.beginPath();
+            ctx.ellipse(0, -2 * scale, 30 * scale, 4 * scale, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Low-profile tires
+            ctx.fillStyle = "#1e293b";
+            ctx.beginPath();
+            ctx.roundRect(-25 * scale, -6 * scale, 8 * scale, 6 * scale, 1.5);
+            ctx.roundRect(17 * scale, -6 * scale, 8 * scale, 6 * scale, 1.5);
+            ctx.fill();
+
+            // Modern body base (Sleek angle design)
+            ctx.fillStyle = bodyColor;
+            ctx.beginPath();
+            ctx.moveTo(-27 * scale, -6 * scale);
+            ctx.lineTo(-27 * scale, -20 * scale);
+            ctx.lineTo(-21 * scale, -25 * scale);
+            ctx.lineTo(21 * scale, -25 * scale);
+            ctx.lineTo(27 * scale, -20 * scale);
+            ctx.lineTo(27 * scale, -6 * scale);
+            ctx.closePath();
+            ctx.fill();
+            ctx.stroke();
+
+            // Cabin Roof
+            ctx.beginPath();
+            ctx.moveTo(-20 * scale, -25 * scale);
+            ctx.quadraticCurveTo(-14 * scale, -43 * scale, 0, -43 * scale);
+            ctx.quadraticCurveTo(14 * scale, -43 * scale, 20 * scale, -25 * scale);
+            ctx.closePath();
+            ctx.fill();
+            ctx.stroke();
+
+            // Windshield (dark glazed)
+            ctx.fillStyle = "#334155";
+            ctx.beginPath();
+            ctx.moveTo(-17 * scale, -27 * scale);
+            ctx.quadraticCurveTo(-11 * scale, -40 * scale, 0, -40 * scale);
+            ctx.quadraticCurveTo(11 * scale, -40 * scale, 17 * scale, -27 * scale);
+            ctx.closePath();
+            ctx.fill();
+            ctx.stroke();
+
+            // Sleek LED Headlights (sharp modern look)
+            ctx.fillStyle = "#ffffff";
+            ctx.beginPath();
+            ctx.moveTo(-25 * scale, -18 * scale);
+            ctx.lineTo(-17 * scale, -18 * scale);
+            ctx.lineTo(-20 * scale, -13 * scale);
+            ctx.closePath();
+            ctx.fill();
+            ctx.stroke();
+
+            ctx.beginPath();
+            ctx.moveTo(25 * scale, -18 * scale);
+            ctx.lineTo(17 * scale, -18 * scale);
+            ctx.lineTo(20 * scale, -13 * scale);
+            ctx.closePath();
+            ctx.fill();
+            ctx.stroke();
+
+            // Front grille
+            ctx.fillStyle = "#1e293b";
+            ctx.beginPath();
+            ctx.roundRect(-12 * scale, -16 * scale, 24 * scale, 6 * scale, 1);
+            ctx.fill();
+
+            ctx.restore();
+        }
+
+        // Draw electrical utility cabinet (綠色公共設施箱)
+        function drawUtilityBox(ctx, x, y, scale) {
+            ctx.save();
+            ctx.translate(x, y);
+
+            // Shadow
+            ctx.fillStyle = "rgba(0,0,0,0.08)";
+            ctx.beginPath();
+            ctx.roundRect(-8 * scale, -2 * scale, 16 * scale, 3 * scale, 1);
+            ctx.fill();
+
+            // Cabinet (Classic Taiwan dark green)
+            ctx.fillStyle = "#1e3a27";
+            ctx.strokeStyle = "#0d1f14";
+            ctx.lineWidth = 1.5;
+            ctx.beginPath();
+            ctx.roundRect(-6 * scale, -20 * scale, 12 * scale, 20 * scale, 1);
+            ctx.fill();
+            ctx.stroke();
+
+            // Vent detailing
+            ctx.fillStyle = "#385e43";
+            ctx.beginPath();
+            ctx.rect(-4 * scale, -16 * scale, 8 * scale, 1.2 * scale);
+            ctx.rect(-4 * scale, -13 * scale, 8 * scale, 1.2 * scale);
+            ctx.fill();
+
+            ctx.restore();
+        }
+
+        function drawStreetAsset(ctx, x, y, scale, type, doubleSided = false) {
+            ctx.save();
+            ctx.translate(x, y);
+            ctx.lineCap = "round";
+            ctx.lineJoin = "round";
+
+            if (type === 'streetlight') {
+                // Approx. 7 m against the standardized 1.7 m pedestrian figure.
+                ctx.strokeStyle = "#334155";
+                ctx.lineWidth = 3.2 * scale;
+                ctx.beginPath();
+                ctx.moveTo(0, 0);
+                ctx.lineTo(0, -190 * scale);
+                ctx.quadraticCurveTo(0, -208 * scale, 18 * scale, -208 * scale);
+                ctx.lineTo(40 * scale, -208 * scale);
+                if (doubleSided) {
+                    ctx.moveTo(0, -190 * scale);
+                    ctx.quadraticCurveTo(0, -208 * scale, -18 * scale, -208 * scale);
+                    ctx.lineTo(-40 * scale, -208 * scale);
+                }
+                ctx.stroke();
+
+                ctx.fillStyle = "#fde68a";
+                ctx.strokeStyle = "#475569";
+                ctx.lineWidth = 1.6 * scale;
+                ctx.beginPath();
+                ctx.roundRect(34 * scale, -213 * scale, 25 * scale, 10 * scale, 3 * scale);
+                ctx.fill();
+                ctx.stroke();
+                if (doubleSided) {
+                    ctx.beginPath();
+                    ctx.roundRect(-59 * scale, -213 * scale, 25 * scale, 10 * scale, 3 * scale);
+                    ctx.fill();
+                    ctx.stroke();
+                }
+
+                ctx.fillStyle = "#475569";
+                ctx.beginPath();
+                ctx.roundRect(-5 * scale, -7 * scale, 10 * scale, 7 * scale, 2 * scale);
+                ctx.fill();
+            } else if (type === 'bus_stop') {
+                ctx.fillStyle = "rgba(186, 230, 253, 0.58)";
+                ctx.strokeStyle = "#0369a1";
+                ctx.lineWidth = 2 * scale;
+                ctx.beginPath();
+                ctx.roundRect(-34 * scale, -88 * scale, 68 * scale, 86 * scale, 3 * scale);
+                ctx.fill();
+                ctx.stroke();
+
+                ctx.fillStyle = "#0f766e";
+                ctx.beginPath();
+                ctx.roundRect(-38 * scale, -96 * scale, 76 * scale, 10 * scale, 2 * scale);
+                ctx.fill();
+
+                ctx.fillStyle = "#475569";
+                ctx.fillRect(-24 * scale, -27 * scale, 48 * scale, 5 * scale);
+                ctx.fillRect(-20 * scale, -22 * scale, 4 * scale, 22 * scale);
+                ctx.fillRect(16 * scale, -22 * scale, 4 * scale, 22 * scale);
+
+                ctx.fillStyle = "#ffffff";
+                ctx.font = `bold ${9 * scale}px 'Noto Sans TC'`;
+                ctx.textAlign = "center";
+                ctx.textBaseline = "middle";
+                ctx.fillText("公車站", 0, -91 * scale);
+            } else if (type === 'bus_sign') {
+                ctx.strokeStyle = "#334155";
+                ctx.lineWidth = 2.6 * scale;
+                ctx.beginPath();
+                ctx.moveTo(0, 0);
+                ctx.lineTo(0, -105 * scale);
+                ctx.stroke();
+
+                ctx.fillStyle = "#0f766e";
+                ctx.strokeStyle = "#134e4a";
+                ctx.lineWidth = 1.5 * scale;
+                ctx.beginPath();
+                ctx.roundRect(-15 * scale, -126 * scale, 30 * scale, 25 * scale, 4 * scale);
+                ctx.fill();
+                ctx.stroke();
+
+                ctx.fillStyle = "#ffffff";
+                ctx.font = `bold ${8 * scale}px 'Noto Sans TC'`;
+                ctx.textAlign = "center";
+                ctx.textBaseline = "middle";
+                ctx.fillText("BUS", 0, -114 * scale);
+            }
+
+            ctx.restore();
+        }
+
+        function drawStreetAssetTop(ctx, x, y, scale, type, doubleSided = false) {
+            ctx.save();
+            ctx.translate(x, y);
+
+            if (type === 'streetlight') {
+                ctx.fillStyle = "#334155";
+                ctx.beginPath();
+                ctx.arc(0, 0, 5 * scale, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.strokeStyle = "#fde68a";
+                ctx.lineWidth = 3 * scale;
+                ctx.beginPath();
+                ctx.arc(0, 0, 9 * scale, 0, Math.PI * 2);
+                ctx.stroke();
+                if (doubleSided) {
+                    ctx.strokeStyle = "#475569";
+                    ctx.lineWidth = 2 * scale;
+                    ctx.beginPath();
+                    ctx.moveTo(-16 * scale, 0);
+                    ctx.lineTo(16 * scale, 0);
+                    ctx.stroke();
+                    ctx.fillStyle = "#fde68a";
+                    ctx.beginPath();
+                    ctx.arc(-16 * scale, 0, 4 * scale, 0, Math.PI * 2);
+                    ctx.arc(16 * scale, 0, 4 * scale, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            } else if (type === 'bus_stop') {
+                ctx.fillStyle = "rgba(14, 116, 144, 0.72)";
+                ctx.strokeStyle = "#0e7490";
+                ctx.lineWidth = 1.5 * scale;
+                ctx.beginPath();
+                ctx.roundRect(-22 * scale, -8 * scale, 44 * scale, 16 * scale, 3 * scale);
+                ctx.fill();
+                ctx.stroke();
+            } else if (type === 'bus_sign') {
+                ctx.fillStyle = "#0f766e";
+                ctx.strokeStyle = "#ffffff";
+                ctx.lineWidth = 1.5 * scale;
+                ctx.beginPath();
+                ctx.arc(0, 0, 8 * scale, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.stroke();
+                ctx.fillStyle = "#ffffff";
+                ctx.font = `bold ${7 * scale}px 'Inter'`;
+                ctx.textAlign = "center";
+                ctx.textBaseline = "middle";
+                ctx.fillText("B", 0, 0);
+            }
+
+            ctx.restore();
+        }
+
+        // Draw classic elegant parked scooters front view in elevation
+        function drawClassicScooterFront(ctx, x, y, scale, color) {
+            ctx.save();
+            ctx.translate(x, y);
+
+            // Ground Shadow
+            ctx.fillStyle = "rgba(15, 23, 42, 0.15)";
+            ctx.beginPath();
+            ctx.ellipse(0, -1 * scale, 10 * scale, 2 * scale, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Front wheel
+            ctx.fillStyle = "#334155";
+            ctx.beginPath();
+            ctx.roundRect(-2 * scale, -11 * scale, 4 * scale, 11 * scale, 1 * scale);
+            ctx.fill();
+
+            // Front Mudguard
+            ctx.fillStyle = color;
+            ctx.beginPath();
+            ctx.ellipse(0, -10 * scale, 3.5 * scale, 2.5 * scale, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Leg Shield / Front Apron (Highly recognizable Vespa face)
+            ctx.fillStyle = color;
+            ctx.strokeStyle = "#1e293b";
+            ctx.lineWidth = 1.2 * scale;
+            ctx.beginPath();
+            ctx.moveTo(-7 * scale, -11 * scale);
+            ctx.quadraticCurveTo(-9 * scale, -23 * scale, -6 * scale, -25 * scale);
+            ctx.lineTo(6 * scale, -25 * scale);
+            ctx.quadraticCurveTo(9 * scale, -23 * scale, 7 * scale, -11 * scale);
+            ctx.closePath();
+            ctx.fill();
+            ctx.stroke();
+
+            // Chrome horn grille in center apron
+            ctx.strokeStyle = "#94a3b8";
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(0, -15 * scale);
+            ctx.lineTo(0, -21 * scale);
+            ctx.stroke();
+
+            // Handlebars / Instrument pod
+            ctx.fillStyle = color;
+            ctx.beginPath();
+            ctx.roundRect(-5.5 * scale, -30 * scale, 11 * scale, 3 * scale, 1 * scale);
+            ctx.fill();
+            ctx.stroke();
+
+            // Large retro circular headlight (Yellow glow)
+            ctx.fillStyle = "#fef08a";
+            ctx.strokeStyle = "#475569";
+            ctx.lineWidth = 1 * scale;
+            ctx.beginPath();
+            ctx.arc(0, -30 * scale, 3 * scale, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+
+            // Left & Right chrome mirrors
+            ctx.strokeStyle = "#64748b";
+            ctx.lineWidth = 0.8 * scale;
+            
+            // Left Mirror
+            ctx.beginPath();
+            ctx.moveTo(-3 * scale, -30 * scale);
+            ctx.lineTo(-6 * scale, -35 * scale);
+            ctx.stroke();
+            ctx.fillStyle = "#cbd5e1";
+            ctx.beginPath();
+            ctx.arc(-6 * scale, -35 * scale, 1.8 * scale, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+
+            // Right Mirror
+            ctx.beginPath();
+            ctx.moveTo(3 * scale, -30 * scale);
+            ctx.lineTo(6 * scale, -35 * scale);
+            ctx.stroke();
+            ctx.fillStyle = "#cbd5e1";
+            ctx.beginPath();
+            ctx.arc(6 * scale, -35 * scale, 1.8 * scale, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+
+            // Cute small orange circular blinker lights
+            ctx.fillStyle = "#f97316";
+            ctx.beginPath();
+            ctx.arc(-5 * scale, -19 * scale, 1.1 * scale, 0, Math.PI * 2);
+            ctx.arc(5 * scale, -19 * scale, 1.1 * scale, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.restore();
+        }
+
+        // --- PLAN / TOP-DOWN DRAWINGS ---
+        function drawTopViewVehicle(ctx, x, y, widthPx, lengthPx, type) {
+            ctx.save();
+            ctx.translate(x, y);
+
+            if (type.includes('classic')) {
+                // Classic top-view white SUV or purple car
+                const w = widthPx * 0.55;
+                const l = lengthPx * 0.85;
+
+                // Car shadow
+                ctx.fillStyle = "rgba(0, 0, 0, 0.12)";
+                ctx.beginPath();
+                ctx.roundRect(-w/2 + 2, -l/2 + 3, w, l, 8);
+                ctx.fill();
+
+                // Body color selector
+                ctx.fillStyle = type.includes('purple') ? "#cbd2e6" : "#f8fafc";
+                ctx.strokeStyle = "#475569";
+                ctx.lineWidth = 1.5;
+                ctx.beginPath();
+                ctx.roundRect(-w/2, -l/2, w, l, 6);
+                ctx.fill();
+                ctx.stroke();
+
+                // Windshield window blocks
+                ctx.fillStyle = "#1e293b";
+                ctx.beginPath();
+                ctx.roundRect(-w/2 + 3, -l/4, w - 6, l/5, 2);
+                ctx.fill();
+
+            } else {
+                // Sleek modern vehicle (eg. truck or sports car)
+                const w = widthPx * 0.6;
+                const l = lengthPx * 0.95;
+
+                // Shadow
+                ctx.fillStyle = "rgba(0, 0, 0, 0.15)";
+                ctx.beginPath();
+                ctx.roundRect(-w/2 + 2, -l/2 + 4, w, l, 5);
+                ctx.fill();
+
+                // Body
+                ctx.fillStyle = "#e2e8f0";
+                ctx.strokeStyle = "#334155";
+                ctx.lineWidth = 1.8;
+                ctx.beginPath();
+                ctx.roundRect(-w/2, -l/2, w, l, 4);
+                ctx.fill();
+                ctx.stroke();
+
+                // Cabin glass & trunk split
+                ctx.fillStyle = "#475569";
+                ctx.beginPath();
+                ctx.roundRect(-w/2 + 2.5, -l/3, w - 5, l/3.5, 3);
+                ctx.fill();
+                ctx.stroke();
+
+                ctx.strokeStyle = "#334155";
+                ctx.beginPath();
+                ctx.moveTo(-w/2, l/8);
+                ctx.lineTo(w/2, l/8);
+                ctx.stroke();
+            }
+
+            ctx.restore();
+        }
+
+        // Draw beautiful angled scooter parking top-view (Right facility zone in image)
+        function drawScooterParkingTop(ctx, x, y, widthPx, heightPx) {
+            ctx.save();
+            ctx.translate(x, y);
+
+            // Clean white boundary parking lines
+            ctx.strokeStyle = "rgba(255, 255, 255, 0.85)";
+            ctx.lineWidth = 1.8;
+
+            // Render angled bays at 45 degrees
+            let index = 0;
+            const colors = ["#0d9488", "#0ea5e9", "#ef4444", "#f59e0b"]; // Beautiful diverse scooter body colors
+            for (let offset = -heightPx/2 + 15; offset < heightPx/2 - 10; offset += 24) {
+                ctx.beginPath();
+                ctx.moveTo(-widthPx/2 + 5, offset);
+                ctx.lineTo(widthPx/2 - 5, offset - 15);
+                ctx.stroke();
+
+                // Draw miniature parked scooters (Using high fidelity Vespa topview rendering!)
+                if (toggleDecorations.checked) {
+                    const chosenColor = colors[index % colors.length];
+                    
+                    // Inline Scooter topview
+                    ctx.save();
+                    ctx.translate(0, offset - 7);
+                    ctx.rotate(-Math.PI / 4);
+
+                    // Body shadow
+                    ctx.fillStyle = "rgba(15, 23, 42, 0.15)";
+                    ctx.beginPath();
+                    ctx.ellipse(1, 2, 3.5, 8, 0, 0, Math.PI * 2);
+                    ctx.fill();
+
+                    // Main fairing shield & frame
+                    ctx.fillStyle = chosenColor;
+                    ctx.strokeStyle = "#1e293b";
+                    ctx.lineWidth = 1;
+                    ctx.beginPath();
+                    ctx.ellipse(0, 0, 3.2, 8, 0, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.stroke();
+
+                    // Handlebars
+                    ctx.strokeStyle = "#475569";
+                    ctx.lineWidth = 1.5;
+                    ctx.beginPath();
+                    ctx.moveTo(-4.5, -6);
+                    ctx.lineTo(4.5, -6);
+                    ctx.stroke();
+
+                    // Leather Seat pad
+                    ctx.fillStyle = "#334155";
+                    ctx.beginPath();
+                    ctx.ellipse(0, 1.2, 2, 4.2, 0, 0, Math.PI * 2);
+                    ctx.fill();
+
+                    ctx.restore();
+                }
+                index++;
+            }
+
+            ctx.restore();
+        }
+
+        // Unified architectural illustration system for people and vehicles.
+        function drawArchitecturalPerson(ctx, x, y, scale, pose, colors) {
+            ctx.save();
+            ctx.translate(x, y);
+            ctx.lineCap = "round";
+            ctx.lineJoin = "round";
+
+            ctx.fillStyle = "rgba(15, 23, 42, 0.10)";
+            ctx.beginPath();
+            ctx.ellipse(0, 0, 7 * scale, 2 * scale, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.strokeStyle = "#273444";
+            ctx.lineWidth = 2.2 * scale;
+
+            const walking = pose === "walk";
+            const bodyLean = walking ? 2 : 0;
+
+            // Legs use broad, readable strokes instead of tiny anatomy.
+            ctx.beginPath();
+            ctx.moveTo(bodyLean * scale, -17 * scale);
+            ctx.lineTo((walking ? -5 : -3) * scale, -7 * scale);
+            ctx.lineTo((walking ? -8 : -4) * scale, 0);
+            ctx.moveTo(bodyLean * scale, -17 * scale);
+            ctx.lineTo((walking ? 6 : 3) * scale, -8 * scale);
+            ctx.lineTo((walking ? 8 : 4) * scale, 0);
+            ctx.stroke();
+
+            // Coat / torso.
+            ctx.fillStyle = colors.coat;
+            ctx.strokeStyle = "#273444";
+            ctx.lineWidth = 1.5 * scale;
+            ctx.beginPath();
+            ctx.moveTo(-6 * scale + bodyLean * scale, -34 * scale);
+            ctx.quadraticCurveTo(bodyLean * scale, -38 * scale, 6 * scale + bodyLean * scale, -34 * scale);
+            ctx.lineTo(5 * scale + bodyLean * scale, -17 * scale);
+            ctx.lineTo(-5 * scale + bodyLean * scale, -17 * scale);
+            ctx.closePath();
+            ctx.fill();
+            ctx.stroke();
+
+            // Arms.
+            ctx.strokeStyle = "#273444";
+            ctx.lineWidth = 2 * scale;
+            ctx.beginPath();
+            if (pose === "wave") {
+                ctx.moveTo(-5 * scale, -31 * scale);
+                ctx.lineTo(-11 * scale, -37 * scale);
+                ctx.lineTo(-10 * scale, -46 * scale);
+                ctx.moveTo(5 * scale, -31 * scale);
+                ctx.lineTo(10 * scale, -23 * scale);
+            } else if (pose === "guitar") {
+                ctx.moveTo(-5 * scale, -30 * scale);
+                ctx.lineTo(-8 * scale, -23 * scale);
+                ctx.moveTo(5 * scale, -30 * scale);
+                ctx.lineTo(10 * scale, -24 * scale);
+            } else {
+                ctx.moveTo(-5 * scale + bodyLean * scale, -30 * scale);
+                ctx.lineTo((walking ? 5 : -8) * scale, -22 * scale);
+                ctx.moveTo(5 * scale + bodyLean * scale, -30 * scale);
+                ctx.lineTo((walking ? -5 : 8) * scale, -22 * scale);
+            }
+            ctx.stroke();
+
+            // Head and simple hair block.
+            ctx.fillStyle = colors.skin;
+            ctx.beginPath();
+            ctx.arc(bodyLean * scale, -42 * scale, 5 * scale, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.fillStyle = colors.hair;
+            ctx.beginPath();
+            ctx.arc((bodyLean - 1) * scale, -44 * scale, 5 * scale, Math.PI, Math.PI * 2);
+            ctx.quadraticCurveTo(5 * scale, -40 * scale, 4 * scale, -45 * scale);
+            ctx.fill();
+
+            if (pose === "guitar") {
+                ctx.save();
+                ctx.translate(2 * scale, -23 * scale);
+                ctx.rotate(-0.28);
+                ctx.fillStyle = "#b7794b";
+                ctx.strokeStyle = "#273444";
+                ctx.lineWidth = 1.3 * scale;
+                ctx.beginPath();
+                ctx.ellipse(-2 * scale, 0, 6 * scale, 5 * scale, 0, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.stroke();
+                ctx.beginPath();
+                ctx.moveTo(3 * scale, -1 * scale);
+                ctx.lineTo(15 * scale, -1 * scale);
+                ctx.stroke();
+                ctx.restore();
+            }
+
+            ctx.restore();
+        }
+
+        function drawArtsyPedestrian(ctx, x, y, scale, type) {
+            // Bicycle rider: reuse the vector cyclist (no raster, exports cleanly)
+            if (type === 'cyclist') {
+                drawCyclistFront(ctx, x, y, scale * 1.05);
+                return;
+            }
+            const people = {
+                ped1: rasterAssets.dogWalker,
+                ped2: rasterAssets.parentChild,
+                ped3: rasterAssets.cityWalker,
+                ped4: rasterAssets.jogger,
+                ped5: rasterAssets.shopper
+            };
+            const image = people[type] || rasterAssets.cityWalker;
+            if (drawRasterAtGround(ctx, image, x, y, 70 * scale)) return;
+
+            drawArchitecturalPerson(ctx, x, y, scale, "walk", {
+                coat: "#6c7f9b",
+                skin: "#d8a47f",
+                hair: "#273444"
+            });
+        }
+
+        function drawArchitecturalCar(ctx, x, y, scale, bodyColor, mode) {
+            ctx.save();
+            ctx.translate(x, y);
+            ctx.lineJoin = "round";
+
+            ctx.fillStyle = "rgba(15, 23, 42, 0.12)";
+            ctx.beginPath();
+            ctx.ellipse(0, -1 * scale, 31 * scale, 4 * scale, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.fillStyle = "#273444";
+            ctx.beginPath();
+            ctx.roundRect(-24 * scale, -8 * scale, 8 * scale, 8 * scale, 2 * scale);
+            ctx.roundRect(16 * scale, -8 * scale, 8 * scale, 8 * scale, 2 * scale);
+            ctx.fill();
+
+            ctx.fillStyle = bodyColor;
+            ctx.strokeStyle = "#273444";
+            ctx.lineWidth = 1.8 * scale;
+            ctx.beginPath();
+            if (mode === "retro") {
+                ctx.moveTo(-27 * scale, -7 * scale);
+                ctx.quadraticCurveTo(-27 * scale, -24 * scale, -18 * scale, -27 * scale);
+                ctx.quadraticCurveTo(-13 * scale, -45 * scale, 0, -46 * scale);
+                ctx.quadraticCurveTo(13 * scale, -45 * scale, 18 * scale, -27 * scale);
+                ctx.quadraticCurveTo(27 * scale, -24 * scale, 27 * scale, -7 * scale);
+            } else {
+                ctx.moveTo(-29 * scale, -7 * scale);
+                ctx.lineTo(-26 * scale, -24 * scale);
+                ctx.quadraticCurveTo(-17 * scale, -28 * scale, -14 * scale, -39 * scale);
+                ctx.quadraticCurveTo(0, -47 * scale, 14 * scale, -39 * scale);
+                ctx.quadraticCurveTo(17 * scale, -28 * scale, 26 * scale, -24 * scale);
+                ctx.lineTo(29 * scale, -7 * scale);
+            }
+            ctx.closePath();
+            ctx.fill();
+            ctx.stroke();
+
+            ctx.fillStyle = "#435568";
+            ctx.beginPath();
+            if (mode === "retro") {
+                ctx.moveTo(-13 * scale, -28 * scale);
+                ctx.quadraticCurveTo(-9 * scale, -42 * scale, 0, -42 * scale);
+                ctx.quadraticCurveTo(9 * scale, -42 * scale, 13 * scale, -28 * scale);
+            } else {
+                ctx.moveTo(-15 * scale, -29 * scale);
+                ctx.quadraticCurveTo(-9 * scale, -40 * scale, 0, -42 * scale);
+                ctx.quadraticCurveTo(9 * scale, -40 * scale, 15 * scale, -29 * scale);
+            }
+            ctx.closePath();
+            ctx.fill();
+
+            ctx.fillStyle = mode === "rear" ? "#c95f59" : "#f7e7b5";
+            ctx.beginPath();
+            ctx.roundRect(-23 * scale, -19 * scale, 9 * scale, 5 * scale, 2 * scale);
+            ctx.roundRect(14 * scale, -19 * scale, 9 * scale, 5 * scale, 2 * scale);
+            ctx.fill();
+
+            ctx.fillStyle = "#273444";
+            ctx.beginPath();
+            ctx.roundRect(-11 * scale, -14 * scale, 22 * scale, 5 * scale, 2 * scale);
+            ctx.fill();
+
+            ctx.fillStyle = "#f8fafc";
+            ctx.beginPath();
+            ctx.roundRect(-6 * scale, -8 * scale, 12 * scale, 3 * scale, 1 * scale);
+            ctx.fill();
+            ctx.restore();
+        }
+
+        function drawClassicCarFront(ctx, x, y, scale, bodyColor) {
+            if (drawRasterAtGround(ctx, rasterAssets.sedanFront, x, y + (4 * scale), 52 * scale)) return;
+            drawArchitecturalCar(ctx, x, y, scale, bodyColor, "retro");
+        }
+
+        function drawClassicCarRear(ctx, x, y, scale, bodyColor) {
+            if (drawRasterAtGround(ctx, rasterAssets.sedanRear, x, y, 52 * scale)) return;
+            drawArchitecturalCar(ctx, x, y, scale, bodyColor, "rear");
+        }
+
+        function drawModernCarFront(ctx, x, y, scale, bodyColor) {
+            if (drawRasterAtGround(ctx, rasterAssets.suvFront, x, y + (4 * scale), 56 * scale)) return;
+            drawArchitecturalCar(ctx, x, y, scale, bodyColor, "modern");
+        }
+
+        function drawModernCarRear(ctx, x, y, scale, bodyColor) {
+            if (drawRasterAtGround(ctx, rasterAssets.suvRear, x, y, 56 * scale)) return;
+            drawArchitecturalCar(ctx, x, y, scale, bodyColor, "rear");
+        }
+
+        function drawClassicScooterFront(ctx, x, y, scale, color) {
+            ctx.save();
+            ctx.translate(x, y);
+            ctx.fillStyle = "rgba(15, 23, 42, 0.11)";
+            ctx.beginPath();
+            ctx.ellipse(0, -1 * scale, 9 * scale, 2 * scale, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.fillStyle = "#273444";
+            ctx.beginPath();
+            ctx.roundRect(-2.5 * scale, -12 * scale, 5 * scale, 12 * scale, 2 * scale);
+            ctx.fill();
+
+            ctx.fillStyle = color;
+            ctx.strokeStyle = "#273444";
+            ctx.lineWidth = 1.4 * scale;
+            ctx.beginPath();
+            ctx.moveTo(-8 * scale, -9 * scale);
+            ctx.quadraticCurveTo(-10 * scale, -24 * scale, -5 * scale, -29 * scale);
+            ctx.quadraticCurveTo(0, -33 * scale, 5 * scale, -29 * scale);
+            ctx.quadraticCurveTo(10 * scale, -24 * scale, 8 * scale, -9 * scale);
+            ctx.closePath();
+            ctx.fill();
+            ctx.stroke();
+
+            ctx.strokeStyle = "#273444";
+            ctx.lineWidth = 1.6 * scale;
+            ctx.beginPath();
+            ctx.moveTo(-7 * scale, -31 * scale);
+            ctx.lineTo(7 * scale, -31 * scale);
+            ctx.stroke();
+
+            ctx.fillStyle = "#f7e7b5";
+            ctx.beginPath();
+            ctx.arc(0, -32 * scale, 3.5 * scale, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+            ctx.restore();
+        }
+
+        function drawTopViewVehicle(ctx, x, y, widthPx, lengthPx, type, direction = "toward") {
+            const topImages = {
+                classic_rear: rasterAssets.sedanTop,
+                classic_rear_purple: rasterAssets.sedanTop,
+                modern_front_white: rasterAssets.suvTop,
+                modern_front_red: rasterAssets.suvTop,
+                convertible: rasterAssets.convertibleTop,
+                truck: rasterAssets.truckTop,
+                scooter: rasterAssets.scooterAngle,
+                motorcycle: rasterAssets.motorcycleAngle
+            };
+            const topImage = topImages[type] || rasterAssets.sedanTop;
+            if (isRasterReady(topImage)) {
+                ctx.save();
+                ctx.translate(x, y);
+                if (direction === "away") ctx.rotate(Math.PI);
+                const isTwoWheeler = type === "scooter" || type === "motorcycle";
+                if (isTwoWheeler) {
+                    const drawHeight = type === "motorcycle" ? 58 : 52;
+                    const drawWidth = drawHeight * (topImage.naturalWidth / topImage.naturalHeight);
+                    ctx.drawImage(topImage, -drawWidth / 2, -drawHeight / 2, drawWidth, drawHeight);
+                } else {
+                    const drawLength = Math.min(lengthPx * 0.88, type === "truck" ? 82 : 76);
+                    const drawWidth = drawLength * (topImage.naturalWidth / topImage.naturalHeight);
+                    ctx.drawImage(topImage, -drawWidth / 2, -drawLength / 2, drawWidth, drawLength);
+                }
+                ctx.restore();
+                return;
+            }
+
+            ctx.save();
+            ctx.translate(x, y);
+            if (direction === "away") ctx.rotate(Math.PI);
+            const w = Math.min(widthPx * 0.58, 34);
+            const l = Math.min(lengthPx * 0.88, 76);
+
+            ctx.fillStyle = "rgba(15, 23, 42, 0.11)";
+            ctx.beginPath();
+            ctx.roundRect(-w / 2 + 2, -l / 2 + 3, w, l, 8);
+            ctx.fill();
+
+            ctx.fillStyle = type.includes("purple") ? "#a7a5bd" : "#e9ece8";
+            ctx.strokeStyle = "#3d4c5c";
+            ctx.lineWidth = 1.6;
+            ctx.beginPath();
+            ctx.roundRect(-w / 2, -l / 2, w, l, 7);
+            ctx.fill();
+            ctx.stroke();
+
+            ctx.fillStyle = "#435568";
+            ctx.beginPath();
+            ctx.roundRect(-w / 2 + 4, -l * 0.23, w - 8, l * 0.24, 3);
+            ctx.fill();
+            ctx.fillStyle = "#cbd5d8";
+            ctx.beginPath();
+            ctx.roundRect(-w / 2 + 5, l * 0.15, w - 10, l * 0.18, 3);
+            ctx.fill();
+            ctx.restore();
+        }
+
+        function drawArcadeBuilding(ctx, x, width, groundY, floors, side, personType, signStyle) {
+            // Arcade is 4 m; each upper floor is 3.4 m.
+            const arcadeHeight = 132;
+            const upperFloorHeight = Math.round(arcadeHeight * (3.4 / 4));
+            const totalHeight = arcadeHeight + ((floors - 1) * upperFloorHeight);
+            const topY = groundY - totalHeight;
+            const streetEdgeX = side === "left" ? x + width : x;
+            const backEdgeX = side === "left" ? x : x + width;
+            const inwardDirection = side === "left" ? -1 : 1;
+            const streetDirection = -inwardDirection;
+            const recessDepth = Math.min(width * 0.72, 64);
+            const columnWidth = Math.max(7, Math.min(11, width * 0.12));
+
+            ctx.save();
+
+            ctx.fillStyle = "#b9a69a";
+            ctx.strokeStyle = "#394553";
+            ctx.lineWidth = 2;
+            ctx.fillRect(x, topY, width, totalHeight);
+            ctx.strokeRect(x, topY, width, totalHeight);
+
+            const openingInset = 9;
+            const arcadeX = side === "left" ? x + openingInset : streetEdgeX + columnWidth;
+            const arcadeWidth = Math.max(12, width - columnWidth - openingInset);
+            const depthGradient = ctx.createLinearGradient(backEdgeX, 0, streetEdgeX, 0);
+            if (side === "left") {
+                depthGradient.addColorStop(0, "#f1f5f9");
+                depthGradient.addColorStop(1, "#ffffff");
+            } else {
+                depthGradient.addColorStop(0, "#ffffff");
+                depthGradient.addColorStop(1, "#f1f5f9");
+            }
+            ctx.fillStyle = depthGradient;
+            ctx.fillRect(arcadeX, groundY - arcadeHeight + 12, arcadeWidth, arcadeHeight - 15);
+            ctx.strokeStyle = "#cbd5e1";
+            ctx.lineWidth = 1;
+            ctx.strokeRect(arcadeX, groundY - arcadeHeight + 12, arcadeWidth, arcadeHeight - 15);
+
+            const columnX = side === "left" ? streetEdgeX - columnWidth : streetEdgeX;
+            ctx.fillStyle = "#ffffff";
+            ctx.fillRect(columnX, groundY - arcadeHeight, columnWidth, arcadeHeight);
+            ctx.strokeStyle = "#64748b";
+            ctx.lineWidth = 1.4;
+            ctx.strokeRect(columnX, groundY - arcadeHeight, columnWidth, arcadeHeight);
+
+            ctx.fillStyle = "#ffffff";
+            ctx.fillRect(x, groundY - arcadeHeight, width, 9);
+            ctx.strokeStyle = "#64748b";
+            ctx.beginPath();
+            ctx.moveTo(x, groundY - arcadeHeight);
+            ctx.lineTo(x + width, groundY - arcadeHeight);
+            ctx.stroke();
+
+            for (let floor = 1; floor < floors; floor++) {
+                const floorBottom = groundY - arcadeHeight - ((floor - 1) * upperFloorHeight);
+                const floorTop = floorBottom - upperFloorHeight;
+
+                ctx.fillStyle = floor % 2 === 0 ? "#c4b2a7" : "#b9a69a";
+                ctx.fillRect(x + 2, floorTop + 2, width - 4, upperFloorHeight - 3);
+
+                ctx.strokeStyle = "rgba(57, 69, 83, 0.72)";
+                ctx.lineWidth = 1.2;
+                ctx.beginPath();
+                ctx.moveTo(x, floorBottom);
+                ctx.lineTo(x + width, floorBottom);
+                ctx.stroke();
+
+                const windowMargin = Math.max(7, width * 0.15);
+                ctx.fillStyle = "#8ca3ad";
+                ctx.strokeStyle = "#475569";
+                ctx.lineWidth = 1;
+                ctx.beginPath();
+                ctx.roundRect(
+                    x + windowMargin,
+                    floorTop + 11,
+                    Math.max(10, width - (windowMargin * 2)),
+                    20,
+                    2
+                );
+                ctx.fill();
+                ctx.stroke();
+
+                ctx.strokeStyle = "rgba(255,255,255,0.65)";
+                ctx.beginPath();
+                ctx.moveTo(x + width / 2, floorTop + 12);
+                ctx.lineTo(x + width / 2, floorTop + 30);
+                ctx.stroke();
+            }
+
+            if (signStyle && signStyle !== "none") {
+                const signColor = side === "left" ? "#c56a4a" : "#467c78";
+                const signX = streetEdgeX + (streetDirection * 15);
+                const signY = groundY - arcadeHeight - 38;
+                ctx.strokeStyle = "#475569";
+                ctx.lineWidth = 1.2;
+
+                if (signStyle === "round") {
+                    ctx.beginPath();
+                    ctx.moveTo(streetEdgeX, signY + 15);
+                    ctx.lineTo(signX - (streetDirection * 11), signY + 15);
+                    ctx.stroke();
+                    ctx.fillStyle = signColor;
+                    ctx.beginPath();
+                    ctx.arc(signX, signY + 15, 12, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.stroke();
+                    ctx.fillStyle = "rgba(255,255,255,0.7)";
+                    ctx.beginPath();
+                    ctx.arc(signX - 3, signY + 12, 3, 0, Math.PI * 2);
+                    ctx.fill();
+                } else if (signStyle === "awning") {
+                    const awningX = side === "left" ? streetEdgeX - 3 : streetEdgeX - 31;
+                    ctx.fillStyle = signColor;
+                    ctx.beginPath();
+                    ctx.moveTo(awningX, groundY - arcadeHeight + 18);
+                    ctx.lineTo(awningX + 34, groundY - arcadeHeight + 18);
+                    ctx.lineTo(awningX + 28, groundY - arcadeHeight + 31);
+                    ctx.lineTo(awningX + 6, groundY - arcadeHeight + 31);
+                    ctx.closePath();
+                    ctx.fill();
+                    ctx.stroke();
+                    ctx.strokeStyle = "rgba(255,255,255,0.8)";
+                    for (let stripe = 9; stripe <= 25; stripe += 8) {
+                        ctx.beginPath();
+                        ctx.moveTo(awningX + stripe, groundY - arcadeHeight + 19);
+                        ctx.lineTo(awningX + stripe - 2, groundY - arcadeHeight + 30);
+                        ctx.stroke();
+                    }
+                } else {
+                    ctx.fillStyle = signColor;
+                    ctx.beginPath();
+                    ctx.roundRect(signX - 9, signY, 18, 36, 2);
+                    ctx.fill();
+                    ctx.stroke();
+                    ctx.beginPath();
+                    ctx.moveTo(streetEdgeX, signY + 6);
+                    ctx.lineTo(signX - (streetDirection * 9), signY + 6);
+                    ctx.moveTo(streetEdgeX, signY + 30);
+                    ctx.lineTo(signX - (streetDirection * 9), signY + 30);
+                    ctx.stroke();
+                    ctx.fillStyle = "rgba(255,255,255,0.45)";
+                    ctx.fillRect(signX - 5, signY + 5, 3, 26);
+                }
+            }
+
+            if (personType && personType !== "none") {
+                const personX = streetEdgeX + (inwardDirection * Math.min(recessDepth * 0.48, 27));
+                const people = {
+                    ped1: rasterAssets.dogWalker,
+                    ped2: rasterAssets.parentChild,
+                    ped3: rasterAssets.cityWalker,
+                    ped4: rasterAssets.jogger,
+                    ped5: rasterAssets.shopper
+                };
+                drawRasterAtGroundFacing(
+                    ctx,
+                    people[personType] || rasterAssets.cityWalker,
+                    personX,
+                    groundY - 2,
+                    68,
+                    side === "right"
+                );
+            }
+
+            ctx.restore();
+        }
+
+        function drawArcadePlan(ctx, x, width, topY, height, side) {
+            ctx.save();
+            ctx.fillStyle = "#d8d0ca";
+            ctx.fillRect(x, topY, width, height);
+
+            const arcadeDepth = Math.min(width * 0.7, 62);
+            const arcadeX = side === "left" ? x + width - arcadeDepth : x;
+            ctx.fillStyle = "#eee7df";
+            ctx.fillRect(arcadeX, topY, arcadeDepth, height);
+
+            ctx.strokeStyle = "#8b7c72";
+            ctx.lineWidth = 1.3;
+            ctx.setLineDash([8, 6]);
+            const recessLineX = side === "left" ? arcadeX : arcadeX + arcadeDepth;
+            ctx.beginPath();
+            ctx.moveTo(recessLineX, topY);
+            ctx.lineTo(recessLineX, topY + height);
+            ctx.stroke();
+            ctx.setLineDash([]);
+
+            ctx.fillStyle = "#b9a69a";
+            const columnX = side === "left" ? x + width - 8 : x;
+            for (let cy = topY + 18; cy < topY + height; cy += 38) {
+                ctx.fillRect(columnX, cy, 8, 9);
+            }
+            ctx.restore();
+        }
+
+        // Hand-drawn style cyclist (front view) for dedicated bike lanes
+        function drawCyclistFront(ctx, x, y, scale) {
+            ctx.save();
+            ctx.translate(x, y);
+            ctx.lineCap = "round";
+            ctx.lineJoin = "round";
+
+            // Soft ground shadow
+            ctx.fillStyle = "rgba(15, 23, 42, 0.12)";
+            ctx.beginPath();
+            ctx.ellipse(0, -1 * scale, 14 * scale, 3 * scale, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.strokeStyle = "#383c44";
+
+            // Front wheel (narrow ellipse, front view)
+            ctx.lineWidth = 2.2;
+            ctx.beginPath();
+            ctx.ellipse(0, -11 * scale, 3 * scale, 11 * scale, 0, 0, Math.PI * 2);
+            ctx.stroke();
+
+            // Fork + head tube up to the handlebar
+            ctx.lineWidth = 1.8;
+            ctx.beginPath();
+            ctx.moveTo(-2.5 * scale, -13 * scale);
+            ctx.lineTo(-1 * scale, -34 * scale);
+            ctx.moveTo(2.5 * scale, -13 * scale);
+            ctx.lineTo(1 * scale, -34 * scale);
+            ctx.moveTo(0, -34 * scale);
+            ctx.lineTo(0, -38 * scale);
+            ctx.stroke();
+
+            // Handlebar
+            ctx.lineWidth = 2.4;
+            ctx.beginPath();
+            ctx.moveTo(-13 * scale, -38 * scale);
+            ctx.lineTo(13 * scale, -38 * scale);
+            ctx.stroke();
+            // Grips
+            ctx.strokeStyle = "#1e293b";
+            ctx.beginPath();
+            ctx.moveTo(-13 * scale, -38 * scale); ctx.lineTo(-13 * scale, -41 * scale);
+            ctx.moveTo(13 * scale, -38 * scale); ctx.lineTo(13 * scale, -41 * scale);
+            ctx.stroke();
+
+            // Pedaling legs (slightly asymmetric for life)
+            ctx.strokeStyle = "#46566e";
+            ctx.lineWidth = 3.2;
+            ctx.beginPath();
+            ctx.moveTo(-4 * scale, -40 * scale);
+            ctx.lineTo(-6 * scale, -22 * scale);
+            ctx.lineTo(-5 * scale, -14 * scale);
+            ctx.moveTo(4 * scale, -40 * scale);
+            ctx.lineTo(6.5 * scale, -24 * scale);
+            ctx.lineTo(6 * scale, -18 * scale);
+            ctx.stroke();
+
+            // Rider torso (leaning slightly forward over the bars)
+            ctx.fillStyle = "#6c7f9b";
+            ctx.strokeStyle = "#383c44";
+            ctx.lineWidth = 1.4;
+            ctx.beginPath();
+            ctx.moveTo(-7 * scale, -40 * scale);
+            ctx.quadraticCurveTo(-8 * scale, -56 * scale, 0, -58 * scale);
+            ctx.quadraticCurveTo(8 * scale, -56 * scale, 7 * scale, -40 * scale);
+            ctx.closePath();
+            ctx.fill();
+            ctx.stroke();
+
+            // Arms reaching down/out to the grips
+            ctx.strokeStyle = "#6c7f9b";
+            ctx.lineWidth = 2.8;
+            ctx.beginPath();
+            ctx.moveTo(-6 * scale, -53 * scale);
+            ctx.lineTo(-12 * scale, -40 * scale);
+            ctx.moveTo(6 * scale, -53 * scale);
+            ctx.lineTo(12 * scale, -40 * scale);
+            ctx.stroke();
+
+            // Head + helmet
+            ctx.fillStyle = "#d8a47f";
+            ctx.beginPath();
+            ctx.arc(0, -64 * scale, 5.5 * scale, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.strokeStyle = "#383c44";
+            ctx.lineWidth = 1.2;
+            ctx.stroke();
+            // Helmet shell
+            ctx.fillStyle = "#84cc16";
+            ctx.beginPath();
+            ctx.arc(0, -65.5 * scale, 6.2 * scale, Math.PI * 1.05, Math.PI * 1.95);
+            ctx.closePath();
+            ctx.fill();
+            ctx.stroke();
+
+            ctx.restore();
+        }
+
+        // White pavement bicycle marking for the plan view
+        function drawBikeMarkingTop(ctx, x, y) {
+            ctx.save();
+            ctx.translate(x, y);
+            ctx.strokeStyle = "rgba(255, 255, 255, 0.92)";
+            ctx.fillStyle = "rgba(255, 255, 255, 0.92)";
+            ctx.lineWidth = 2;
+
+            // Side-view bicycle glyph (standard pavement marking)
+            ctx.beginPath();
+            ctx.arc(-11, 6, 7, 0, Math.PI * 2);   // rear wheel
+            ctx.moveTo(18, 6);
+            ctx.arc(11, 6, 7, 0, Math.PI * 2);    // front wheel
+            ctx.stroke();
+
+            // Frame
+            ctx.beginPath();
+            ctx.moveTo(-11, 6);
+            ctx.lineTo(-4, -4);
+            ctx.lineTo(7, -4);
+            ctx.lineTo(11, 6);
+            ctx.lineTo(-4, 6);
+            ctx.lineTo(-4, -4);
+            ctx.stroke();
+
+            // Seat + handlebar
+            ctx.beginPath();
+            ctx.moveTo(-4, -4); ctx.lineTo(-6, -9);
+            ctx.moveTo(-8.5, -9); ctx.lineTo(-3.5, -9);
+            ctx.moveTo(7, -4); ctx.lineTo(9, -10);
+            ctx.moveTo(6, -10.5); ctx.lineTo(11, -10);
+            ctx.stroke();
+
+            ctx.restore();
+        }
+
+        function getCarDirection(seg) {
+            return seg.carDirection || (seg.car && seg.car.includes("rear") ? "away" : "toward");
+        }
+
+        function drawLaneVehicle(ctx, seg, x, groundY) {
+            const direction = getCarDirection(seg);
+            // Plan view looks down the road; elevation looks across it, so front/rear is inverse.
+            const elevationFacesFront = direction === "away";
+            const isClassic = seg.car.includes("classic");
+            const bodyColor = seg.car.includes("red")
+                ? "#ef4444"
+                : seg.car.includes("purple")
+                    ? "#cbd2e6"
+                    : "#ffffff";
+
+            if (seg.car === "convertible") {
+                drawRasterAtGroundFacing(ctx, rasterAssets.convertibleSide, x, groundY, 48, elevationFacesFront);
+                return;
+            }
+            if (seg.car === "truck") {
+                drawRasterAtGround(ctx, rasterAssets.truckRear, x, groundY, 62);
+                return;
+            }
+            if (seg.car === "scooter") {
+                drawRasterAtGround(ctx, rasterAssets.scooterFront, x, groundY + 2, 64);
+                return;
+            }
+            if (seg.car === "motorcycle") {
+                drawRasterAtGround(ctx, rasterAssets.motorcycleFront, x, groundY + 2, 64);
+                return;
+            }
+
+            if (!elevationFacesFront) {
+                if (isClassic) {
+                    drawClassicCarRear(ctx, x, groundY, 1.25, bodyColor);
+                } else {
+                    drawModernCarRear(ctx, x, groundY, 1.25, bodyColor);
+                }
+            } else if (isClassic) {
+                drawClassicCarFront(ctx, x, groundY, 1.25, bodyColor);
+            } else {
+                drawModernCarFront(ctx, x, groundY, 1.25, bodyColor);
+            }
+        }
+
+        // --- MASTER SYSTEM DRAWING FUNCTION (Enables Retina-Sharp Display & Pristine 2K Export!) ---
+        function drawEverything(targetCtx, targetWidth, targetHeight, options = {}) {
+            targetCtx.save();
+            const showEditorGuides = options.showEditorGuides === true;
+
+            // Clear target canvas background
+            targetCtx.fillStyle = "#ffffff";
+            targetCtx.fillRect(0, 0, targetWidth, targetHeight);
+
+            // Compute unified scale coefficient to maintain pixel perfect alignments on base dimension (1050x880)
+            const scaleFactor = targetWidth / 1050;
+            targetCtx.scale(scaleFactor, scaleFactor);
+
+            // The following code coordinates are calibrated to a 1050 x 880 master space:
+            let totalMeters = segments.reduce((sum, s) => sum + s.width, 0);
+            const buildingWidthM = 2.5; // Fixed side building profile buffers
+            const totalRenderWidthM = totalMeters + (buildingWidthM * 2);
+
+            // Compute scaling (Pixels per Meter)
+            const activeWidth = 1050 - 100; // Left & Right outer padding
+            const pxPerMeter = activeWidth / totalRenderWidthM;
+
+            const startX = 50 + (buildingWidthM * pxPerMeter); // Start of active street structure
+
+            // Define vertical layout bands
+            const topViewY = 100;
+            const topViewHeight = 150;
+            const labelSectionY = 270;
+            const labelSectionHeight = 50;
+            const elevationY = 920; // Five true-scale 4 m floors retain a clear gap below the plan view.
+
+            // --- RENDER LEFT & RIGHT ARCADE BUILDINGS ---
+            const buildingWidthPx = buildingWidthM * pxPerMeter;
+            const rightBuildingStartX = startX + (totalMeters * pxPerMeter);
+            const leftFloors = parseInt(leftBuildingFloors.value, 10) || 3;
+            const rightFloors = parseInt(rightBuildingFloors.value, 10) || 4;
+
+            if (toggleTopView.checked) {
+                drawArcadePlan(targetCtx, 50, buildingWidthPx, topViewY, topViewHeight, "left");
+                drawArcadePlan(targetCtx, rightBuildingStartX, buildingWidthPx, topViewY, topViewHeight, "right");
+            }
+
+            drawArcadeBuilding(
+                targetCtx,
+                50,
+                buildingWidthPx,
+                elevationY,
+                leftFloors,
+                "left",
+                toggleDecorations.checked ? leftArcadePeople.value : "none",
+                leftArcadeSign.value
+            );
+            drawArcadeBuilding(
+                targetCtx,
+                rightBuildingStartX,
+                buildingWidthPx,
+                elevationY,
+                rightFloors,
+                "right",
+                toggleDecorations.checked ? rightArcadePeople.value : "none",
+                rightArcadeSign.value
+            );
+
+            // --- DYNAMIC RENDER SEGMENTS ---
+            let currentX = startX;
+
+            segments.forEach((seg, index) => {
+                const segWidthPx = seg.width * pxPerMeter;
+                const midX = currentX + (segWidthPx / 2);
+
+                // --- PLAN / TOP-DOWN VIEW ---
+                if (toggleTopView.checked) {
+                    if (seg.type === 'sidewalk') {
+                        // Light beige sidewalk tiles
+                        targetCtx.fillStyle = "#f3f4f6";
+                        targetCtx.fillRect(currentX, topViewY, segWidthPx, topViewHeight);
+                        
+                        // Vertical tile seam lines
+                        targetCtx.strokeStyle = "rgba(255, 255, 255, 0.9)";
+                        targetCtx.lineWidth = 1;
+                        for (let tx = currentX; tx < currentX + segWidthPx; tx += 12) {
+                            targetCtx.beginPath();
+                            targetCtx.moveTo(tx, topViewY);
+                            targetCtx.lineTo(tx, topViewY + topViewHeight);
+                            targetCtx.stroke();
+                        }
+
+                    } else if (seg.type === 'facility') {
+                        // Soft grey facility band
+                        targetCtx.fillStyle = "#e5e7eb";
+                        targetCtx.fillRect(currentX, topViewY, segWidthPx, topViewHeight);
+
+                        // Parked scooter diagonal bays (Right side facility)
+                        if (toggleDecorations.checked && (seg.extra === 'scooter_parking' || seg.car === 'scooter_group')) {
+                            drawScooterParkingTop(targetCtx, midX, topViewY + topViewHeight/2, segWidthPx, topViewHeight);
+                        } else if (toggleDecorations.checked && seg.car !== 'none') {
+                            drawTopViewVehicle(targetCtx, midX, topViewY + topViewHeight / 2, segWidthPx, 75, seg.car, "toward");
+                        }
+
+                        // Small tree planter box
+                        const treeStyle = seg.treeStyle || (seg.tree ? "fat" : "none");
+                        if (toggleDecorations.checked && treeStyle !== "none") {
+                            targetCtx.fillStyle = "rgba(120, 180, 125, 0.4)";
+                            targetCtx.beginPath();
+                            if (treeStyle === "hedge") {
+                                // Continuous clipped hedge strip running along the road
+                                targetCtx.roundRect(midX - 8, topViewY + 6, 16, topViewHeight - 12, 7);
+                            } else if (treeStyle === "slim") {
+                                targetCtx.ellipse(midX, topViewY + topViewHeight - 30, 11, 22, 0, 0, Math.PI * 2);
+                            } else {
+                                targetCtx.arc(midX, topViewY + topViewHeight - 30, 20, 0, Math.PI * 2);
+                            }
+                            targetCtx.fill();
+                            targetCtx.strokeStyle = "#16a34a";
+                            targetCtx.lineWidth = 1;
+                            targetCtx.stroke();
+                        }
+
+                    } else if (seg.type === 'median') {
+                        targetCtx.fillStyle = "#dce8d7";
+                        targetCtx.fillRect(currentX, topViewY, segWidthPx, topViewHeight);
+
+                        targetCtx.strokeStyle = "#7c8f74";
+                        targetCtx.lineWidth = 2;
+                        targetCtx.strokeRect(currentX, topViewY, segWidthPx, topViewHeight);
+
+                        targetCtx.fillStyle = "rgba(120, 160, 104, 0.22)";
+                        targetCtx.fillRect(currentX + 4, topViewY + 4, Math.max(0, segWidthPx - 8), topViewHeight - 8);
+
+                        const medianTreeStyle = seg.treeStyle || "none";
+                        if (toggleDecorations.checked && medianTreeStyle !== "none") {
+                            targetCtx.fillStyle = "rgba(79, 140, 77, 0.48)";
+                            targetCtx.beginPath();
+                            if (medianTreeStyle === "slim") {
+                                targetCtx.ellipse(midX, topViewY + topViewHeight / 2, 10, 24, 0, 0, Math.PI * 2);
+                            } else {
+                                targetCtx.arc(midX, topViewY + topViewHeight / 2, 20, 0, Math.PI * 2);
+                            }
+                            targetCtx.fill();
+                            targetCtx.strokeStyle = "#3f7d44";
+                            targetCtx.lineWidth = 1.2;
+                            targetCtx.stroke();
+                        }
+
+                    } else if (seg.type === 'bike') {
+                        // Painted green cycleway surface
+                        targetCtx.fillStyle = "#6f9e7d";
+                        targetCtx.fillRect(currentX, topViewY, segWidthPx, topViewHeight);
+
+                        // White solid edge lines
+                        targetCtx.strokeStyle = "#ffffff";
+                        targetCtx.lineWidth = 1.8;
+                        targetCtx.beginPath();
+                        targetCtx.moveTo(currentX + 1.5, topViewY);
+                        targetCtx.lineTo(currentX + 1.5, topViewY + topViewHeight);
+                        targetCtx.moveTo(currentX + segWidthPx - 1.5, topViewY);
+                        targetCtx.lineTo(currentX + segWidthPx - 1.5, topViewY + topViewHeight);
+                        targetCtx.stroke();
+
+                        // Standard pavement bicycle marking
+                        if (toggleDecorations.checked) {
+                            drawBikeMarkingTop(targetCtx, midX, topViewY + topViewHeight / 2);
+                        }
+
+                    } else if (seg.type === 'lane') {
+                        // Dark asphalt background
+                        targetCtx.fillStyle = "#4b5563";
+                        targetCtx.fillRect(currentX, topViewY, segWidthPx, topViewHeight);
+
+                        // Lanes separator logic
+                        targetCtx.strokeStyle = "#ffffff";
+                        targetCtx.lineWidth = 1.8;
+                        const nextSeg = segments[index + 1];
+
+                        if (nextSeg && nextSeg.type === 'lane') {
+                            // Center dashed separator line
+                            targetCtx.save();
+                            targetCtx.setLineDash([16, 16]);
+                            targetCtx.beginPath();
+                            targetCtx.moveTo(currentX + segWidthPx, topViewY);
+                            targetCtx.lineTo(currentX + segWidthPx, topViewY + topViewHeight);
+                            targetCtx.stroke();
+                            targetCtx.restore();
+                        } else {
+                            // Thick solid white outer boundary
+                            targetCtx.beginPath();
+                            targetCtx.moveTo(currentX + segWidthPx, topViewY);
+                            targetCtx.lineTo(currentX + segWidthPx, topViewY + topViewHeight);
+                            targetCtx.stroke();
+                        }
+
+                        if (toggleDecorations.checked && seg.car !== 'none') {
+                            drawTopViewVehicle(
+                                targetCtx,
+                                midX,
+                                topViewY + topViewHeight / 2,
+                                segWidthPx,
+                                85,
+                                seg.car,
+                                getCarDirection(seg)
+                            );
+                        }
+                    }
+
+                    if (toggleDecorations.checked && seg.streetAsset && seg.streetAsset !== 'none') {
+                        drawStreetAssetTop(
+                            targetCtx,
+                            midX,
+                            topViewY + 20,
+                            1,
+                            seg.streetAsset,
+                            seg.type === 'median' && seg.streetAsset === 'streetlight'
+                        );
+                    }
+                }
+
+                // --- PARAMETER DIMENSION GUIDES & BANNERS (MIDDLE) ---
+                if (toggleDimensions.checked) {
+                    // Vertical guideline dashes linking top/elevation views
+                    targetCtx.strokeStyle = "rgba(148, 163, 184, 0.4)";
+                    targetCtx.lineWidth = 0.9;
+                    targetCtx.setLineDash([5, 5]);
+                    
+                    targetCtx.beginPath();
+                    targetCtx.moveTo(currentX, topViewY + topViewHeight);
+                    targetCtx.lineTo(currentX, elevationY);
+                    targetCtx.stroke();
+
+                    // Final right border dashed line
+                    if (index === segments.length - 1) {
+                        targetCtx.beginPath();
+                        targetCtx.moveTo(currentX + segWidthPx, topViewY + topViewHeight);
+                        targetCtx.lineTo(currentX + segWidthPx, elevationY);
+                        targetCtx.stroke();
+                    }
+                    targetCtx.setLineDash([]); // Reset line dashes
+
+                    // Background color styling for the dimension tags
+                    let tagBg = "#e2e8f0";
+                    let tagText = "#334155";
+
+                    if (seg.type === 'sidewalk') {
+                        tagBg = "#fef3c7"; // Warm Yellow
+                        tagText = "#92400e";
+                    } else if (seg.type === 'facility') {
+                        tagBg = "#e0f2fe"; // Soft Blue
+                        tagText = "#0369a1";
+                    } else if (seg.type === 'median') {
+                        tagBg = "#dcfce7";
+                        tagText = "#166534";
+                    } else if (seg.type === 'bike') {
+                        tagBg = "#ecfccb";
+                        tagText = "#3f6212";
+                    }
+
+                    // Dimension banner
+                    targetCtx.fillStyle = tagBg;
+                    targetCtx.fillRect(currentX + 1.5, labelSectionY, segWidthPx - 3, labelSectionHeight);
+                    
+                    targetCtx.strokeStyle = "rgba(100, 116, 139, 0.2)";
+                    targetCtx.lineWidth = 1;
+                    targetCtx.strokeRect(currentX + 1.5, labelSectionY, segWidthPx - 3, labelSectionHeight);
+
+                    // Printed Dimension Value Text
+                    targetCtx.fillStyle = tagText;
+                    targetCtx.font = "bold 15px 'Inter'";
+                    targetCtx.textAlign = "center";
+                    targetCtx.textBaseline = "middle";
+                    targetCtx.fillText(seg.width.toString(), midX, labelSectionY + labelSectionHeight/2);
+                }
+
+                // --- ELEVATION VIEW (CROSS-SECTIONAL MODELS) ---
+                // Ground Level Line
+                targetCtx.strokeStyle = "#1e293b";
+                targetCtx.lineWidth = 4;
+                targetCtx.beginPath();
+                targetCtx.moveTo(startX, elevationY);
+                targetCtx.lineTo(startX + (totalMeters * pxPerMeter), elevationY);
+                targetCtx.stroke();
+
+                // Urban Curbs elevation detailing (raise sidewalk and facilities by 5px)
+                const curbShift = 4.5;
+                const medianShift = 9;
+                if (seg.type === 'sidewalk' || seg.type === 'facility' || seg.type === 'median') {
+                    const surfaceShift = seg.type === 'median' ? medianShift : curbShift;
+                    targetCtx.fillStyle = seg.type === 'median' ? "#c7d7bd" : "#cbd5e1";
+                    targetCtx.fillRect(currentX, elevationY - surfaceShift, segWidthPx, surfaceShift);
+                    targetCtx.strokeStyle = "#475569";
+                    targetCtx.lineWidth = 1;
+                    targetCtx.strokeRect(currentX, elevationY - surfaceShift, segWidthPx, surfaceShift);
+                }
+
+                // Painted cycleway surface strip at road level
+                if (seg.type === 'bike') {
+                    targetCtx.fillStyle = "#86b794";
+                    targetCtx.fillRect(currentX, elevationY - 3, segWidthPx, 3);
+                    targetCtx.strokeStyle = "#476b53";
+                    targetCtx.lineWidth = 1;
+                    targetCtx.strokeRect(currentX, elevationY - 3, segWidthPx, 3);
+                }
+
+                // Continue the raised sidewalk section line into the arcade floor.
+                if (seg.type === 'sidewalk' && index === 0) {
+                    targetCtx.fillStyle = "#ffffff";
+                    targetCtx.fillRect(50, elevationY - curbShift, startX - 50, curbShift);
+                    targetCtx.strokeStyle = "#1e293b";
+                    targetCtx.lineWidth = 3;
+                    targetCtx.beginPath();
+                    targetCtx.moveTo(50, elevationY - curbShift);
+                    targetCtx.lineTo(currentX + segWidthPx, elevationY - curbShift);
+                    targetCtx.stroke();
+                }
+                if (seg.type === 'sidewalk' && index === segments.length - 1) {
+                    const buildingOuterX = rightBuildingStartX + buildingWidthPx;
+                    targetCtx.fillStyle = "#ffffff";
+                    targetCtx.fillRect(rightBuildingStartX, elevationY - curbShift, buildingWidthPx, curbShift);
+                    targetCtx.strokeStyle = "#1e293b";
+                    targetCtx.lineWidth = 3;
+                    targetCtx.beginPath();
+                    targetCtx.moveTo(currentX, elevationY - curbShift);
+                    targetCtx.lineTo(buildingOuterX, elevationY - curbShift);
+                    targetCtx.stroke();
+                }
+
+                // Render dynamic elevation models
+                if (seg.type === 'sidewalk') {
+                    if (toggleDecorations.checked && seg.ped !== 'none') {
+                        drawArtsyPedestrian(targetCtx, midX, elevationY - curbShift, 1, seg.ped);
+                    }
+                } else if (seg.type === 'facility') {
+                    // Place utility cabinet
+                    if (toggleDecorations.checked && seg.extra === 'box') {
+                        drawUtilityBox(targetCtx, currentX + 12, elevationY - curbShift, 1.1);
+                    }
+
+                    // Place selected hand-drawn tree profile.
+                    const treeStyle = seg.treeStyle || (seg.tree ? "fat" : "none");
+                    if (treeStyle !== "none") {
+                        drawArtsyTree(targetCtx, midX, elevationY - curbShift, 1.35, treeStyle);
+                    }
+
+                    // Render classic purple/grey beetle car or gorgeous Vespa scooters parked (on facility zone)
+                    if (toggleDecorations.checked) {
+                        if (seg.car === 'scooter_group') {
+                            // Render beautiful side-by-side parked retro Vespas!
+                            drawClassicScooterFront(targetCtx, midX - 25, elevationY - curbShift, 1.1, "#0d9488"); // Teal scooter
+                            drawClassicScooterFront(targetCtx, midX, elevationY - curbShift, 1.1, "#ea580c");      // Orange scooter
+                            drawClassicScooterFront(targetCtx, midX + 25, elevationY - curbShift, 1.1, "#ef4444");  // Red scooter
+                        } else if (seg.car === 'scooter') {
+                            drawRasterAtGroundFacing(
+                                targetCtx,
+                                rasterAssets.scooterAngle,
+                                midX,
+                                elevationY - curbShift,
+                                58,
+                                false
+                            );
+                        } else if (seg.car === 'motorcycle') {
+                            drawRasterAtGroundFacing(
+                                targetCtx,
+                                rasterAssets.motorcycleAngle,
+                                midX,
+                                elevationY - curbShift,
+                                60,
+                                false
+                            );
+                        } else if (seg.car !== 'none') {
+                            drawLaneVehicle(
+                                targetCtx,
+                                { ...seg, carDirection: "toward" },
+                                midX,
+                                elevationY - curbShift
+                            );
+                        }
+                    }
+                } else if (seg.type === 'median') {
+                    const medianTreeStyle = seg.treeStyle || "none";
+                    if (medianTreeStyle !== "none") {
+                        drawArtsyTree(targetCtx, midX, elevationY - medianShift, 1.25, medianTreeStyle);
+                    }
+                } else if (seg.type === 'bike') {
+                    if (toggleDecorations.checked && seg.car === 'bike') {
+                        drawCyclistFront(targetCtx, midX, elevationY - 3, 1.05);
+                    }
+                } else if (seg.type === 'lane') {
+                    if (toggleDecorations.checked && seg.car !== 'none') {
+                        drawLaneVehicle(targetCtx, seg, midX, elevationY);
+                    }
+                }
+
+                if (toggleDecorations.checked && seg.streetAsset && seg.streetAsset !== 'none') {
+                    const assetGroundY = elevationY - (seg.type === 'lane' ? 0 : seg.type === 'median' ? medianShift : curbShift);
+                    drawStreetAsset(
+                        targetCtx,
+                        midX,
+                        assetGroundY,
+                        1,
+                        seg.streetAsset,
+                        seg.type === 'median' && seg.streetAsset === 'streetlight'
+                    );
+                }
+
+                // --- VERTICAL TEXT CHINESE LABELS (BOTTOM) ---
+                const textColY = elevationY + 45;
+
+                // Color-matched columnar tint backgrounds
+                let columnTint = "rgba(241, 245, 249, 0.12)";
+                if (seg.type === 'sidewalk') columnTint = "rgba(251, 191, 36, 0.08)";
+                else if (seg.type === 'facility') columnTint = "rgba(56, 189, 248, 0.08)";
+                else if (seg.type === 'median') columnTint = "rgba(34, 197, 94, 0.08)";
+                else if (seg.type === 'bike') columnTint = "rgba(132, 204, 22, 0.10)";
+
+                targetCtx.fillStyle = columnTint;
+                targetCtx.fillRect(currentX, elevationY, segWidthPx, 185);
+
+                // Write Vertical road segment names (Supports multi-line via '\n')
+                targetCtx.save();
+                targetCtx.translate(midX, textColY);
+                targetCtx.fillStyle = "#334155";
+                targetCtx.font = "bold 14px 'Noto Sans TC'";
+                targetCtx.textAlign = "center";
+                
+                const labelLines = seg.name.split('\n');
+                labelLines.forEach((line, lineIdx) => {
+                    targetCtx.fillText(line, 0, lineIdx * 19);
+                });
+                targetCtx.restore();
+
+                // Keep only the parking marker; pedestrian and median decorations are drawn in the elevation band above.
+                if (seg.type === 'facility' && seg.extra === 'scooter_parking') {
+                    const markerY = elevationY + 150;
+                    targetCtx.fillStyle = "#e0f2fe";
+                    targetCtx.strokeStyle = "#7dd3fc";
+                    targetCtx.lineWidth = 1;
+                    targetCtx.beginPath();
+                    targetCtx.roundRect(midX - 26, markerY - 10, 52, 20, 4);
+                    targetCtx.fill();
+                    targetCtx.stroke();
+                    targetCtx.fillStyle = "#0369a1";
+                    targetCtx.font = "bold 11px 'Noto Sans TC'";
+                    targetCtx.textAlign = "center";
+                    targetCtx.textBaseline = "middle";
+                    targetCtx.fillText("機車停車", midX, markerY);
+                }
+
+                // --- EDITOR-ONLY PREVIEW GUIDES (numbering badges + hover highlight; never exported) ---
+                if (showEditorGuides) {
+                    // Hover highlight synced with the sidebar card under the cursor
+                    if (activeSegmentIndex === index) {
+                        targetCtx.fillStyle = "rgba(16, 185, 129, 0.08)";
+                        targetCtx.fillRect(currentX, topViewY, segWidthPx, (elevationY + 185) - topViewY);
+                        targetCtx.strokeStyle = "rgba(16, 185, 129, 0.75)";
+                        targetCtx.lineWidth = 2;
+                        targetCtx.strokeRect(currentX + 1, topViewY + 1, segWidthPx - 2, (elevationY + 185) - topViewY - 2);
+                    }
+
+                    // Segment index badge (matches the card numbers in the sidebar)
+                    const badgeY = labelSectionY - 16;
+                    targetCtx.fillStyle = "#0f172a";
+                    targetCtx.beginPath();
+                    targetCtx.arc(midX, badgeY, 11, 0, Math.PI * 2);
+                    targetCtx.fill();
+                    targetCtx.fillStyle = "#ffffff";
+                    targetCtx.font = "bold 12px 'Inter'";
+                    targetCtx.textAlign = "center";
+                    targetCtx.textBaseline = "middle";
+                    targetCtx.fillText(String(index + 1), midX, badgeY + 0.5);
+                }
+
+                // Advance the cursor to the next segment
+                currentX += segWidthPx;
+            });
+
+            // --- TOTAL ROAD WIDTH DIMENSION BRACKETS (TOP BAND + BELOW THE CROSS-SECTION) ---
+            const totalBracketY = 42;
+            const bracketEndX = startX + (totalMeters * pxPerMeter);
+            const totalLabel = `路幅總寬度 ${totalMeters.toFixed(2)} M`;
+
+            const drawTotalWidthBracket = (y) => {
+                targetCtx.strokeStyle = "#0f172a";
+                targetCtx.lineWidth = 2;
+                targetCtx.beginPath();
+                targetCtx.moveTo(startX, y);
+                targetCtx.lineTo(bracketEndX, y);
+                targetCtx.stroke();
+
+                // End ticks
+                targetCtx.beginPath();
+                targetCtx.moveTo(startX, y - 8);
+                targetCtx.lineTo(startX, y + 8);
+                targetCtx.moveTo(bracketEndX, y - 8);
+                targetCtx.lineTo(bracketEndX, y + 8);
+                targetCtx.stroke();
+
+                // Centered label pill on the bracket line
+                const labelX = startX + (totalMeters * pxPerMeter) / 2;
+                targetCtx.font = "bold 17px 'Noto Sans TC'";
+                const totalLabelW = targetCtx.measureText(totalLabel).width + 28;
+                targetCtx.fillStyle = "#ffffff";
+                targetCtx.strokeStyle = "#0f172a";
+                targetCtx.lineWidth = 1.5;
+                targetCtx.beginPath();
+                targetCtx.roundRect(labelX - totalLabelW / 2, y - 14, totalLabelW, 28, 14);
+                targetCtx.fill();
+                targetCtx.stroke();
+                targetCtx.fillStyle = "#0f172a";
+                targetCtx.textAlign = "center";
+                targetCtx.textBaseline = "middle";
+                targetCtx.fillText(totalLabel, labelX, y + 1);
+            };
+
+            drawTotalWidthBracket(totalBracketY);              // Above the plan view
+            drawTotalWidthBracket(elevationY + 215);           // Below the cross-section name labels
+
+            // --- ROAD NAME TITLE (centered, directly above the total-width label) ---
+            if (roadName && roadName.trim()) {
+                const rnText = roadName.trim();
+                const rnCenterX = startX + (totalMeters * pxPerMeter) / 2;  // same center as the 路幅總寬度 label
+                const rnPadX = 13;
+                const drawRoadName = (bracketY) => {
+                    const rnY = bracketY - 28;          // sit just above the 路幅總寬度 label pill
+                    targetCtx.font = "bold 16px 'Noto Sans TC'";
+                    targetCtx.textAlign = "center";
+                    targetCtx.textBaseline = "middle";
+                    const rnPillW = targetCtx.measureText(rnText).width + rnPadX * 2;
+                    const rnPillH = 24;
+                    targetCtx.fillStyle = "#0f172a";
+                    targetCtx.beginPath();
+                    targetCtx.roundRect(rnCenterX - rnPillW / 2, rnY - rnPillH / 2, rnPillW, rnPillH, 8);
+                    targetCtx.fill();
+                    targetCtx.fillStyle = "#ffffff";
+                    targetCtx.fillText(rnText, rnCenterX, rnY + 1);
+                };
+                drawRoadName(totalBracketY);            // Above the top 路幅總寬度 label
+                drawRoadName(elevationY + 215);         // Above the bottom 路幅總寬度 label
+            }
+
+            // --- LEFT / RIGHT PEDESTRIAN-REALM SUB-BRACKETS ---
+            // Groups of consecutive non-lane segments at each edge (sidewalk + facility belts)
+            let leftGroupM = 0;
+            for (const s of segments) {
+                if (s.type === 'lane') break;
+                leftGroupM += s.width;
+            }
+            let rightGroupM = 0;
+            for (let i = segments.length - 1; i >= 0; i--) {
+                if (segments[i].type === 'lane') break;
+                rightGroupM += segments[i].width;
+            }
+
+            if (leftGroupM > 0 || rightGroupM > 0) {
+                const drawSubBrackets = (subBracketY) => {
+                    targetCtx.strokeStyle = "#64748b";
+                    targetCtx.lineWidth = 1.5;
+                    targetCtx.font = "bold 12px 'Noto Sans TC'";
+
+                    if (leftGroupM > 0) {
+                        const leftGroupPx = leftGroupM * pxPerMeter;
+                        targetCtx.strokeStyle = "#64748b";
+                        targetCtx.lineWidth = 1.5;
+                        targetCtx.beginPath();
+                        targetCtx.moveTo(startX, subBracketY);
+                        targetCtx.lineTo(startX + leftGroupPx, subBracketY);
+                        targetCtx.stroke();
+
+                        targetCtx.beginPath();
+                        targetCtx.moveTo(startX, subBracketY - 6);
+                        targetCtx.lineTo(startX, subBracketY + 6);
+                        targetCtx.moveTo(startX + leftGroupPx, subBracketY - 6);
+                        targetCtx.lineTo(startX + leftGroupPx, subBracketY + 6);
+                        targetCtx.stroke();
+
+                        const leftMidX = startX + (leftGroupPx / 2);
+                        const leftStr = `${leftGroupM.toFixed(2)}M`;
+                        const leftW = targetCtx.measureText(leftStr).width + 16;
+                        targetCtx.fillStyle = "#ffffff";
+                        targetCtx.fillRect(leftMidX - leftW / 2, subBracketY - 9, leftW, 18);
+                        targetCtx.fillStyle = "#475569";
+                        targetCtx.textAlign = "center";
+                        targetCtx.textBaseline = "middle";
+                        targetCtx.fillText(leftStr, leftMidX, subBracketY);
+                    }
+
+                    if (rightGroupM > 0) {
+                        const rightGroupPx = rightGroupM * pxPerMeter;
+                        const rightStartX = bracketEndX - rightGroupPx;
+                        targetCtx.strokeStyle = "#64748b";
+                        targetCtx.lineWidth = 1.5;
+                        targetCtx.beginPath();
+                        targetCtx.moveTo(rightStartX, subBracketY);
+                        targetCtx.lineTo(bracketEndX, subBracketY);
+                        targetCtx.stroke();
+
+                        targetCtx.beginPath();
+                        targetCtx.moveTo(rightStartX, subBracketY - 6);
+                        targetCtx.lineTo(rightStartX, subBracketY + 6);
+                        targetCtx.moveTo(bracketEndX, subBracketY - 6);
+                        targetCtx.lineTo(bracketEndX, subBracketY + 6);
+                        targetCtx.stroke();
+
+                        const rightMidX = rightStartX + (rightGroupPx / 2);
+                        const rightStr = `${rightGroupM.toFixed(2)}M`;
+                        const rightW = targetCtx.measureText(rightStr).width + 16;
+                        targetCtx.fillStyle = "#ffffff";
+                        targetCtx.fillRect(rightMidX - rightW / 2, subBracketY - 9, rightW, 18);
+                        targetCtx.fillStyle = "#475569";
+                        targetCtx.textAlign = "center";
+                        targetCtx.textBaseline = "middle";
+                        targetCtx.fillText(rightStr, rightMidX, subBracketY);
+                    }
+                };
+
+                drawSubBrackets(totalBracketY + 38);     // Below the top total bracket
+                drawSubBrackets(elevationY + 215 + 38);  // Below the bottom total bracket (under the section)
+            }
+
+            targetCtx.restore();
+        }
+
+        // --- SCREEN DISPLAY RENDER ADAPTER ---
+        function render() {
+            try {
+                // High DPI Retina Support for Onscreen canvas
+                const dpr = window.devicePixelRatio || 1;
+                const canvasContainer = document.getElementById('canvas-container');
+
+                const baseWidth = 1050;
+                const baseHeight = 1190; // Extra band for the bottom total-width bracket
+                const aspectRatio = baseWidth / baseHeight;
+
+                // Fit inside both available width and height while preserving 1050:880.
+                const containerStyle = window.getComputedStyle(canvasContainer);
+                const horizontalPadding = parseFloat(containerStyle.paddingLeft) + parseFloat(containerStyle.paddingRight);
+                const verticalPadding = parseFloat(containerStyle.paddingTop) + parseFloat(containerStyle.paddingBottom);
+                const availableWidth = Math.max(1, canvasContainer.clientWidth - horizontalPadding);
+                const availableHeight = Math.max(1, canvasContainer.clientHeight - verticalPadding);
+
+                let displayWidth = availableWidth;
+                let displayHeight = displayWidth / aspectRatio;
+
+                if (displayHeight > availableHeight) {
+                    displayHeight = availableHeight;
+                    displayWidth = displayHeight * aspectRatio;
+                }
+
+                roadCanvas.width = baseWidth * dpr;
+                roadCanvas.height = baseHeight * dpr;
+                roadCanvas.style.width = `${Math.floor(displayWidth)}px`;
+                roadCanvas.style.height = `${Math.floor(displayHeight)}px`;
+                roadCanvas.style.aspectRatio = `${baseWidth} / ${baseHeight}`;
+
+                ctx.clearRect(0, 0, roadCanvas.width, roadCanvas.height);
+
+                // Draw uniformly to screen canvas using standard scale adapter
+                drawEverything(ctx, baseWidth * dpr, baseHeight * dpr, { showEditorGuides: true });
+
+                let totalM = segments.reduce((sum, s) => sum + s.width, 0);
+                scaleIndicator.innerText = `繪圖比例尺: 1M ＝ ${( (baseWidth - 100) / (totalM + 5) ).toFixed(1)}px`;
+            } catch (err) {
+                console.error("Onscreen rendering failed:", err);
+            }
+        }
+
+        // --- CLEAN DIRECT 2K HIGH-RESOLUTION EXPORT ENGINE ---
+        function exportImage() {
+            const buildExportCanvas = () => {
+                const exportCanvas = document.createElement('canvas');
+                exportCanvas.width = 2560; // Standard master 2K Width
+                exportCanvas.height = Math.round(2560 * (1190 / 1050));
+                const exportCtx = exportCanvas.getContext('2d');
+                drawEverything(exportCtx, exportCanvas.width, exportCanvas.height, { showEditorGuides: false });
+                return exportCanvas;
+            };
+
+            const downloadBlob = (blob, fileName) => {
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.download = fileName;
+                a.href = url;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                setTimeout(() => URL.revokeObjectURL(url), 5000);
+            };
+
+            const totalM = segments.reduce((acc, curr) => acc + curr.width, 0).toFixed(1);
+            const fileName = `道路剖面2K設計圖_${segments.length}區段_${totalM}M.png`;
+
+            // Last-resort path: the canvas was tainted by external images —
+            // rebuild on a fresh canvas with vector-only sprites (never taints).
+            const exportVectorFallback = () => {
+                try {
+                    suppressRasters = true;
+                    const cleanCanvas = buildExportCanvas();
+                    suppressRasters = false;
+                    cleanCanvas.toBlob((blob) => {
+                        if (!blob) { showToast("匯出失敗，請回報此問題", "error"); return; }
+                        downloadBlob(blob, fileName);
+                        showToast("受瀏覽器安全限制，人物/車輛已改以向量風格匯出", "info");
+                    }, "image/png");
+                } catch (e2) {
+                    suppressRasters = false;
+                    console.error("Vector fallback export failed:", e2);
+                    showToast("匯出失敗：" + e2.message, "error");
+                }
+            };
+
+            try {
+                const exportCanvas = buildExportCanvas();
+                exportCanvas.toBlob((blob) => {
+                    if (!blob) { exportVectorFallback(); return; }
+                    downloadBlob(blob, fileName);
+                    showToast("🎉 2K 高解析剖面圖已成功儲存！", "success");
+                }, "image/png");
+            } catch (err) {
+                console.error("2K Export failed (likely tainted canvas), retrying vector-only:", err);
+                exportVectorFallback();
+            }
+        }
+
+        // App Launch Bootstrap
+        window.onload = function() {
+            const restored = loadState();
+            renderSidebar();
+            render();
+            if (restored) showToast('已自動還原上次的配置', 'info', '重設為 20M', () => applyPreset('classic20'));
+        }
+
+        // Responsive Resizing Handler
+        window.addEventListener('resize', render);
+
+        // --- CANVAS → SIDEBAR REVERSE NAVIGATION ---
+        // Clicking a segment on the canvas scrolls to & highlights its settings card.
+        roadCanvas.addEventListener('click', (e) => {
+            const rect = roadCanvas.getBoundingClientRect();
+            // Convert click position into the 1050px master coordinate space used by drawEverything
+            const xMaster = (e.clientX - rect.left) * (1050 / rect.width);
+
+            const totalM = segments.reduce((sum, s) => sum + s.width, 0);
+            const pxPerMeter = (1050 - 100) / (totalM + 5); // Mirrors drawEverything layout math
+            let acc = 50 + (2.5 * pxPerMeter);              // startX after left building buffer
+
+            for (let i = 0; i < segments.length; i++) {
+                const wPx = segments[i].width * pxPerMeter;
+                if (xMaster >= acc && xMaster < acc + wPx) {
+                    focusSegmentCard(i);
+                    return;
+                }
+                acc += wPx;
+            }
+        });
+
+        function focusSegmentCard(index) {
+            setActiveSegment(index);
+            const card = segmentsContainer.children[index];
+            if (!card) return;
+            card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            card.classList.add('ring-2', 'ring-emerald-400', 'ring-offset-1');
+            setTimeout(() => card.classList.remove('ring-2', 'ring-emerald-400', 'ring-offset-1'), 1400);
+        }
+    </script>
+</body>
+</html>
