@@ -105,8 +105,20 @@
                 </span>
             </div>
 
-            <!-- Road Name Input -->
-            <div class="px-4 py-3 border-b border-slate-100 bg-white">
+            <!-- Road Name + Total Width Input (collapsible) -->
+            <details open class="group border-b border-slate-100 bg-white">
+                <summary class="px-4 py-3 flex items-center justify-between cursor-pointer list-none select-none">
+                    <p class="text-xs font-bold text-slate-700 flex items-center gap-2">
+                        <i class="fa-solid fa-road text-emerald-500"></i>
+                        道路名稱與路幅總寬度
+                    </p>
+                    <span class="flex items-center gap-1.5 px-2 py-1 rounded-md bg-slate-50 border border-slate-200 text-[10px] font-bold text-slate-500">
+                        <span class="group-open:hidden">展開</span>
+                        <span class="hidden group-open:inline">收合</span>
+                        <i class="fa-solid fa-chevron-down transition-transform group-open:rotate-180"></i>
+                    </span>
+                </summary>
+                <div class="px-4 pb-3 space-y-2.5">
                 <label class="block">
                     <span class="text-[11px] font-bold text-slate-500 mb-1 flex items-center gap-1.5">
                         <i class="fa-solid fa-road text-emerald-500"></i>
@@ -114,9 +126,25 @@
                     </span>
                     <input id="road-name-input" type="text" maxlength="24" placeholder="例如：中山路、市民大道"
                         class="w-full bg-white border border-slate-200 rounded-lg text-sm py-1.5 px-2.5 text-slate-700 font-semibold focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500" />
-                    <span class="block text-[10px] text-slate-400 mt-1">將顯示於路幅總寬度尺標的最左側</span>
+                    <span class="block text-[10px] text-slate-400 mt-1">顯示於路幅總寬度標籤上方</span>
                 </label>
-            </div>
+                <div>
+                    <span class="text-[11px] font-bold text-slate-500 mb-1 flex items-center gap-1.5">
+                        <i class="fa-solid fa-ruler-horizontal text-emerald-500"></i>
+                        路幅總寬度 (M)
+                    </span>
+                    <div class="flex items-center gap-2">
+                        <input id="road-width-input" type="number" step="0.05" min="1" placeholder="自動加總"
+                            class="flex-1 min-w-0 bg-white border border-slate-200 rounded-lg text-sm py-1.5 px-2.5 text-slate-700 font-semibold focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500" />
+                        <button id="road-width-lock" type="button" onclick="toggleWidthLock()"
+                            class="shrink-0 px-3 py-1.5 rounded-lg text-xs font-bold border transition-all bg-slate-100 border-slate-200 text-slate-600">
+                            <i class="fa-solid fa-lock-open"></i> 未鎖定
+                        </button>
+                    </div>
+                    <span id="road-width-hint" class="block text-[10px] text-slate-400 mt-1">輸入目標總寬後按「鎖定」，之後調整／新增／刪除區段會自動配平其他區段</span>
+                </div>
+                </div>
+            </details>
 
             <!-- Building / Arcade Controls -->
             <details open class="group border-b border-stone-200 bg-gradient-to-br from-stone-50 to-amber-50/60">
@@ -203,9 +231,20 @@
                 <!-- Dynamically injected via JS -->
             </div>
 
-            <!-- Add Element Controls -->
-            <div class="px-4 py-2.5 border-t border-slate-100 bg-slate-50/50 space-y-1.5">
-                <p class="text-xs font-semibold text-slate-500">新增道路段元素：</p>
+            <!-- Add Element Controls (collapsible) -->
+            <details class="group border-t border-slate-100 bg-slate-50/50">
+                <summary class="px-4 py-2.5 flex items-center justify-between cursor-pointer list-none select-none">
+                    <p class="text-xs font-semibold text-slate-500 flex items-center gap-2">
+                        <i class="fa-solid fa-plus text-emerald-500"></i>
+                        新增道路段元素
+                    </p>
+                    <span class="flex items-center gap-1.5 px-2 py-1 rounded-md bg-white border border-slate-200 text-[10px] font-bold text-slate-400">
+                        <span class="group-open:hidden">展開</span>
+                        <span class="hidden group-open:inline">收合</span>
+                        <i class="fa-solid fa-chevron-down transition-transform group-open:rotate-180"></i>
+                    </span>
+                </summary>
+                <div class="px-4 pb-2.5">
                 <div class="grid grid-cols-2 gap-1.5">
                     <button onclick="addSegment('sidewalk')" class="py-1.5 px-2.5 bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-800 rounded-lg text-xs font-semibold flex items-center gap-2 transition-all">
                         <i class="fa-solid fa-person-walking text-amber-600 w-4 text-center"></i>
@@ -228,11 +267,23 @@
                         自行車道
                     </button>
                 </div>
-            </div>
+                </div>
+            </details>
 
-            <!-- Presets Panel -->
-            <div class="p-4 border-t border-slate-200 bg-white">
-                <span class="text-xs font-semibold text-slate-400 block mb-2">快速套用標準斷面：</span>
+            <!-- Presets Panel (collapsible) -->
+            <details class="group border-t border-slate-200 bg-white">
+                <summary class="px-4 py-3 flex items-center justify-between cursor-pointer list-none select-none">
+                    <p class="text-xs font-semibold text-slate-500 flex items-center gap-2">
+                        <i class="fa-solid fa-layer-group text-emerald-500"></i>
+                        快速套用標準斷面
+                    </p>
+                    <span class="flex items-center gap-1.5 px-2 py-1 rounded-md bg-slate-50 border border-slate-200 text-[10px] font-bold text-slate-400">
+                        <span class="group-open:hidden">展開</span>
+                        <span class="hidden group-open:inline">收合</span>
+                        <i class="fa-solid fa-chevron-down transition-transform group-open:rotate-180"></i>
+                    </span>
+                </summary>
+                <div class="px-4 pb-4">
                 <div class="grid grid-cols-2 gap-2">
                     <button onclick="applyPreset('narrow10')" class="py-1.5 px-2 border border-slate-200 hover:border-emerald-300 text-slate-600 hover:text-emerald-600 rounded text-xs font-medium text-left transition truncate">
                         📍 10M 雙向社區巷道
@@ -247,8 +298,8 @@
                         🌟 經典 20M (原圖比例)
                     </button>
                 </div>
-
-            </div>
+                </div>
+            </details>
         </aside>
 
         <!-- Center/Right Canvas Workspace -->
@@ -332,8 +383,10 @@
             { id: '8', type: 'sidewalk', name: '人行道', width: 1.5, tree: false, car: 'none', ped: 'ped2', extra: 'none' }
         ];
 
-        // Road name shown at the leftmost of the total-width dimension
+        // Road name shown above the total-width label
         let roadName = '';
+        // Locked total road width: when locked, segments auto-balance to keep the sum at `value`
+        let roadWidth = { locked: false, value: 20 };
 
         // Presets List
         const PRESETS = {
@@ -392,7 +445,12 @@
         const leftArcadeSign = document.getElementById('left-arcade-sign');
         const rightArcadeSign = document.getElementById('right-arcade-sign');
         const roadNameInput = document.getElementById('road-name-input');
+        const roadWidthInput = document.getElementById('road-width-input');
+        const roadWidthLockBtn = document.getElementById('road-width-lock');
+        const roadWidthHint = document.getElementById('road-width-hint');
         let activeSegmentIndex = null;
+        // Canvas drag-to-reorder state (used by the cross-section pointer handlers + drop indicator)
+        let canvasDrag = { active: false, fromIndex: null, startClientX: 0, pointerX: 0, moved: false };
 
         const rasterAssets = {
             dogWalker: loadRasterAsset('assets/user-people-vehicles/person-dog-walker-side.png'),
@@ -472,6 +530,24 @@
         // Road name: live update as the user types
         roadNameInput.addEventListener('input', () => { roadName = roadNameInput.value; render(); saveState(); });
 
+        // Road width: changing the value while locked re-fits all segments to the new target
+        roadWidthInput.addEventListener('change', () => {
+            if (!roadWidth.locked) return;
+            const v = parseFloat(roadWidthInput.value);
+            const minSum = segments.reduce((a, s) => a + getWidthLimits(s).min, 0);
+            if (isNaN(v) || v <= 0) { roadWidthInput.value = roadWidth.value.toFixed(2); return; }
+            if (v < minSum) {
+                showToast(`總寬不可小於各區段最小值合計 ${minSum.toFixed(2)} M`, 'error');
+                roadWidthInput.value = roadWidth.value.toFixed(2);
+                return;
+            }
+            roadWidth.value = roundW(v);
+            fitAllToTarget(roadWidth.value);
+            renderSidebar();
+            render();
+            saveState();
+        });
+
         // Render Left Settings Sidebar
         function renderSidebar() {
             segmentsContainer.innerHTML = '';
@@ -545,6 +621,7 @@
                                 <div class="flex items-center h-full pt-1">
                                     <input type="range" min="${widthLimits.min}" max="${widthLimits.max}" step="0.05" value="${seg.width}" id="range-width-${seg.id}"
                                         oninput="syncWidth('${seg.id}', this.value, 'range')"
+                                        onchange="settleWidthLock()"
                                         class="w-full accent-emerald-500">
                                 </div>
                             </div>
@@ -760,7 +837,9 @@
                 rightPeople: rightArcadePeople.value,
                 leftSign: leftArcadeSign.value,
                 rightSign: rightArcadeSign.value,
-                roadName: roadName
+                roadName: roadName,
+                roadWidthLocked: roadWidth.locked,
+                roadWidthValue: roadWidth.value
             };
         }
 
@@ -773,6 +852,9 @@
             if (b.leftSign) leftArcadeSign.value = b.leftSign;
             if (b.rightSign) rightArcadeSign.value = b.rightSign;
             if (b.roadName !== undefined) { roadName = b.roadName; roadNameInput.value = b.roadName; }
+            if (b.roadWidthValue !== undefined) roadWidth.value = b.roadWidthValue;
+            if (b.roadWidthLocked !== undefined) roadWidth.locked = b.roadWidthLocked;
+            applyWidthLockUI();
         }
 
         function saveState() {
@@ -903,6 +985,9 @@
                 carDirection: type === 'lane' ? 'toward' : undefined
             });
 
+            // Locked total: shrink the other segments to make room for the new one
+            if (roadWidth.locked) rebalanceLocked(segments.length - 1);
+
             renderSidebar();
             render();
             saveState();
@@ -916,6 +1001,8 @@
             const seg = segments.find(s => s.id === id);
             snapshotState();
             segments = segments.filter(s => s.id !== id);
+            // Locked total: grow the remaining segments to keep the sum fixed
+            if (roadWidth.locked && segments.length > 0) fitAllToTarget(roadWidth.value);
             renderSidebar();
             render();
             saveState();
@@ -933,6 +1020,7 @@
                         limits.min,
                         Math.min(limits.max, isNaN(parsedWidth) ? limits.min : parsedWidth)
                     );
+                    if (roadWidth.locked) rebalanceLocked(index);
                 } else if (key === 'treeStyle') {
                     segments[index].treeStyle = value;
                     segments[index].tree = value !== 'none';
@@ -968,6 +1056,9 @@
 
                 // Update model memory
                 segments[index].width = parsedVal;
+
+                // When the total is locked, balance the other segments live so the sum stays fixed
+                if (roadWidth.locked) { rebalanceLocked(index); syncAllWidthInputs(segments[index].id); }
 
                 // Instantly sync peer input control visually without re-creating DOM elements
                 if (source === 'num') {
@@ -1014,12 +1105,131 @@
                     parsedVal = limits.max;
                 }
                 segments[index].width = parsedVal;
+                if (roadWidth.locked) rebalanceLocked(index);
 
                 // Perform safe structural re-render to align values
                 renderSidebar();
                 render();
                 saveState();
             }
+        }
+
+        // --- LOCKED TOTAL WIDTH: AUTO-BALANCE ENGINE ---
+        const W_STEP = 0.05;
+        const roundW = v => Math.round(v / W_STEP) * W_STEP;
+
+        // Scale a set of segment indices so they sum exactly to `target`, respecting per-type min/max.
+        function fitIndicesToTarget(idxs, target) {
+            if (idxs.length === 0) return;
+            const cur = idxs.reduce((a, i) => a + segments[i].width, 0) || idxs.length;
+            const scale = target / cur;
+            idxs.forEach(i => {
+                const l = getWidthLimits(segments[i]);
+                segments[i].width = Math.max(l.min, Math.min(l.max, roundW(segments[i].width * scale)));
+            });
+            // Iteratively absorb the rounding/clamping residual
+            for (let pass = 0; pass < 12; pass++) {
+                const s = idxs.reduce((a, i) => a + segments[i].width, 0);
+                const diff = roundW(target - s);
+                if (Math.abs(diff) < 0.0001) break;
+                const pool = idxs.filter(i => {
+                    const l = getWidthLimits(segments[i]);
+                    return diff > 0 ? segments[i].width < l.max - 1e-9 : segments[i].width > l.min + 1e-9;
+                });
+                if (pool.length === 0) break;
+                const per = diff / pool.length;
+                let applied = 0;
+                pool.forEach(i => {
+                    const l = getWidthLimits(segments[i]);
+                    const nw = Math.max(l.min, Math.min(l.max, roundW(segments[i].width + per)));
+                    applied += (nw - segments[i].width);
+                    segments[i].width = nw;
+                });
+                if (Math.abs(applied) < 0.0001) {
+                    const i = pool[0];
+                    const l = getWidthLimits(segments[i]);
+                    segments[i].width = Math.max(l.min, Math.min(l.max, roundW(segments[i].width + diff)));
+                    break;
+                }
+            }
+        }
+
+        function fitAllToTarget(target) {
+            fitIndicesToTarget(segments.map((_, i) => i), target);
+        }
+
+        // Keep `keepIndex` as edited; redistribute the remainder across the other segments.
+        function rebalanceLocked(keepIndex) {
+            if (!roadWidth.locked) return;
+            const target = roadWidth.value;
+            const others = segments.map((_, i) => i).filter(i => i !== keepIndex);
+            if (others.length === 0) {
+                const l = getWidthLimits(segments[keepIndex]);
+                segments[keepIndex].width = Math.max(l.min, Math.min(l.max, roundW(target)));
+                return;
+            }
+            const minSum = others.reduce((a, i) => a + getWidthLimits(segments[i]).min, 0);
+            let othersTarget = roundW(target - segments[keepIndex].width);
+            if (othersTarget < minSum) {
+                othersTarget = minSum;
+                const l = getWidthLimits(segments[keepIndex]);
+                segments[keepIndex].width = Math.max(l.min, Math.min(l.max, roundW(target - minSum)));
+            }
+            fitIndicesToTarget(others, othersTarget);
+        }
+
+        // Live-refresh every segment's width inputs from the model (skip the one being actively edited).
+        function syncAllWidthInputs(skipId) {
+            segments.forEach(s => {
+                if (s.id === skipId) return;
+                const n = document.getElementById(`num-width-${s.id}`);
+                const r = document.getElementById(`range-width-${s.id}`);
+                if (n) n.value = s.width;
+                if (r) r.value = s.width;
+            });
+        }
+
+        // Slider release while locked: rebuild the sidebar so all values settle.
+        function settleWidthLock() {
+            if (roadWidth.locked) { renderSidebar(); render(); saveState(); }
+        }
+
+        function applyWidthLockUI() {
+            if (!roadWidthLockBtn) return;
+            if (roadWidth.locked) {
+                roadWidthInput.value = roadWidth.value.toFixed(2);
+                roadWidthLockBtn.innerHTML = '<i class="fa-solid fa-lock"></i> 已鎖定';
+                roadWidthLockBtn.className = 'shrink-0 px-3 py-1.5 rounded-lg text-xs font-bold border transition-all bg-emerald-600 border-emerald-600 text-white';
+                roadWidthHint.textContent = '已鎖定：調整／新增／刪除區段會自動配平其他區段，維持總寬不變';
+            } else {
+                roadWidthLockBtn.innerHTML = '<i class="fa-solid fa-lock-open"></i> 未鎖定';
+                roadWidthLockBtn.className = 'shrink-0 px-3 py-1.5 rounded-lg text-xs font-bold border transition-all bg-slate-100 border-slate-200 text-slate-600';
+                roadWidthHint.textContent = '輸入目標總寬後按「鎖定」，之後調整／新增／刪除區段會自動配平其他區段';
+            }
+        }
+
+        function toggleWidthLock() {
+            if (!roadWidth.locked) {
+                const v = parseFloat(roadWidthInput.value);
+                const sum = segments.reduce((a, s) => a + s.width, 0);
+                const target = (!isNaN(v) && v > 0) ? v : sum;
+                const minSum = segments.reduce((a, s) => a + getWidthLimits(s).min, 0);
+                if (target < minSum) {
+                    showToast(`總寬不可小於各區段最小值合計 ${minSum.toFixed(2)} M`, 'error');
+                    return;
+                }
+                roadWidth.value = roundW(target);
+                roadWidth.locked = true;
+                fitAllToTarget(roadWidth.value);
+                showToast(`已鎖定路幅總寬度 ${roadWidth.value.toFixed(2)} M`, 'success');
+            } else {
+                roadWidth.locked = false;
+                showToast('已解除總寬鎖定', 'info');
+            }
+            applyWidthLockUI();
+            renderSidebar();
+            render();
+            saveState();
         }
 
         function moveSegment(index, direction) {
@@ -1038,6 +1248,12 @@
             if (PRESETS[presetKey]) {
                 snapshotState();
                 segments = JSON.parse(JSON.stringify(PRESETS[presetKey]));
+                // A preset defines its own total width — release any width lock and adopt the preset's width
+                if (roadWidth.locked) {
+                    roadWidth.locked = false;
+                    roadWidth.value = roundW(segments.reduce((a, s) => a + s.width, 0));
+                    applyWidthLockUI();
+                }
                 renderSidebar();
                 render();
                 saveState();
@@ -1849,10 +2065,13 @@
             ctx.restore();
         }
 
-        // Draw beautiful angled scooter parking top-view (Right facility zone in image)
-        function drawScooterParkingTop(ctx, x, y, widthPx, heightPx) {
+        // Draw beautiful angled scooter parking top-view.
+        // side: 'left' keeps the base orientation (noses toward the left/outer edge);
+        // 'right' mirrors horizontally so noses face the right/outer edge → left & right stay symmetric.
+        function drawScooterParkingTop(ctx, x, y, widthPx, heightPx, side) {
             ctx.save();
             ctx.translate(x, y);
+            if (side === 'right') ctx.scale(-1, 1);  // mirror for the right-hand facility zone
 
             // Clean white boundary parking lines
             ctx.strokeStyle = "rgba(255, 255, 255, 0.85)";
@@ -1871,10 +2090,16 @@
                 if (toggleDecorations.checked) {
                     const chosenColor = colors[index % colors.length];
                     
-                    // Inline Scooter topview
+                    // Inline Scooter topview — rotate to lie PARALLEL to the bay divider lines.
+                    // Bay line runs from (-w/2+5, offset) to (w/2-5, offset-15) → direction atan2(-15, w-10);
+                    // the scooter body's long axis (local -Y) is aligned to it (nose toward the outer edge).
+                    const bayAngle = Math.atan2(-15, widthPx - 10);
                     ctx.save();
-                    ctx.translate(0, offset - 7);
-                    ctx.rotate(-Math.PI / 4);
+                    // Centre the scooter INSIDE the bay (between this divider line and the next),
+                    // not on the line. At x=0 the line sits at offset-7.5 and lines step 24px apart,
+                    // so the cell centre is offset-7.5 + 12 = offset+4.5.
+                    ctx.translate(0, offset + 4.5);
+                    ctx.rotate(bayAngle - Math.PI / 2);
 
                     // Body shadow
                     ctx.fillStyle = "rgba(15, 23, 42, 0.15)";
@@ -2689,9 +2914,11 @@
                         targetCtx.fillStyle = "#e5e7eb";
                         targetCtx.fillRect(currentX, topViewY, segWidthPx, topViewHeight);
 
-                        // Parked scooter diagonal bays (Right side facility)
+                        // Parked scooter diagonal bays — mirror left/right so noses face the outer edge
                         if (toggleDecorations.checked && (seg.extra === 'scooter_parking' || seg.car === 'scooter_group')) {
-                            drawScooterParkingTop(targetCtx, midX, topViewY + topViewHeight/2, segWidthPx, topViewHeight);
+                            const roadCenterX = startX + (totalMeters * pxPerMeter) / 2;
+                            const parkingSide = midX < roadCenterX ? 'left' : 'right';
+                            drawScooterParkingTop(targetCtx, midX, topViewY + topViewHeight/2, segWidthPx, topViewHeight, parkingSide);
                         } else if (toggleDecorations.checked && seg.car !== 'none') {
                             drawTopViewVehicle(targetCtx, midX, topViewY + topViewHeight / 2, segWidthPx, 75, seg.car, "toward");
                         }
@@ -3070,6 +3297,35 @@
                 currentX += segWidthPx;
             });
 
+            // --- DRAG-TO-REORDER DROP INDICATOR (editor only, never exported) ---
+            if (showEditorGuides && canvasDrag.active && canvasDrag.moved && canvasDrag.fromIndex !== null) {
+                const insAt = insertionIndexAtMasterX(canvasDrag.pointerX);
+                let bx = startX;
+                for (let k = 0; k < insAt && k < segments.length; k++) bx += segments[k].width * pxPerMeter;
+                let dx = startX;
+                for (let k = 0; k < canvasDrag.fromIndex && k < segments.length; k++) dx += segments[k].width * pxPerMeter;
+                const dW = (segments[canvasDrag.fromIndex] ? segments[canvasDrag.fromIndex].width : 0) * pxPerMeter;
+                const topY = topViewY - 24;
+                const botY = elevationY + 60;
+                targetCtx.save();
+                // Highlight the column being dragged
+                targetCtx.fillStyle = "rgba(16,185,129,0.12)";
+                targetCtx.fillRect(dx, topY, dW, botY - topY);
+                // Insertion line with arrow caps
+                targetCtx.strokeStyle = "#10b981";
+                targetCtx.lineWidth = 4;
+                targetCtx.beginPath();
+                targetCtx.moveTo(bx, topY);
+                targetCtx.lineTo(bx, botY);
+                targetCtx.stroke();
+                targetCtx.fillStyle = "#10b981";
+                targetCtx.beginPath();
+                targetCtx.moveTo(bx - 7, topY); targetCtx.lineTo(bx + 7, topY); targetCtx.lineTo(bx, topY + 10); targetCtx.closePath(); targetCtx.fill();
+                targetCtx.beginPath();
+                targetCtx.moveTo(bx - 7, botY); targetCtx.lineTo(bx + 7, botY); targetCtx.lineTo(bx, botY - 10); targetCtx.closePath(); targetCtx.fill();
+                targetCtx.restore();
+            }
+
             // --- TOTAL ROAD WIDTH DIMENSION BRACKETS (TOP BAND + BELOW THE CROSS-SECTION) ---
             const totalBracketY = 42;
             const bracketEndX = startX + (totalMeters * pxPerMeter);
@@ -3320,6 +3576,7 @@
         // App Launch Bootstrap
         window.onload = function() {
             const restored = loadState();
+            applyWidthLockUI();
             renderSidebar();
             render();
             if (restored) showToast('已自動還原上次的配置', 'info', '重設為 20M', () => applyPreset('classic20'));
@@ -3330,23 +3587,81 @@
 
         // --- CANVAS → SIDEBAR REVERSE NAVIGATION ---
         // Clicking a segment on the canvas scrolls to & highlights its settings card.
-        roadCanvas.addEventListener('click', (e) => {
+        // Convert a pointer event into the 1050px master coordinate space used by drawEverything
+        function canvasMasterX(e) {
             const rect = roadCanvas.getBoundingClientRect();
-            // Convert click position into the 1050px master coordinate space used by drawEverything
-            const xMaster = (e.clientX - rect.left) * (1050 / rect.width);
-
+            return (e.clientX - rect.left) * (1050 / rect.width);
+        }
+        function layoutPxPerMeter() {
             const totalM = segments.reduce((sum, s) => sum + s.width, 0);
-            const pxPerMeter = (1050 - 100) / (totalM + 5); // Mirrors drawEverything layout math
-            let acc = 50 + (2.5 * pxPerMeter);              // startX after left building buffer
-
+            return (1050 - 100) / (totalM + 5); // Mirrors drawEverything layout math
+        }
+        // Which segment sits under a master-X coordinate (or null)
+        function segmentIndexAtMasterX(xMaster) {
+            const ppm = layoutPxPerMeter();
+            let acc = 50 + (2.5 * ppm); // startX after the left building buffer
             for (let i = 0; i < segments.length; i++) {
-                const wPx = segments[i].width * pxPerMeter;
-                if (xMaster >= acc && xMaster < acc + wPx) {
-                    focusSegmentCard(i);
-                    return;
-                }
+                const wPx = segments[i].width * ppm;
+                if (xMaster >= acc && xMaster < acc + wPx) return i;
                 acc += wPx;
             }
+            return null;
+        }
+        // Insertion slot (0..n) for a drop at a master-X coordinate
+        function insertionIndexAtMasterX(xMaster) {
+            const ppm = layoutPxPerMeter();
+            let acc = 50 + (2.5 * ppm);
+            for (let i = 0; i < segments.length; i++) {
+                const wPx = segments[i].width * ppm;
+                if (xMaster < acc + wPx / 2) return i;
+                acc += wPx;
+            }
+            return segments.length;
+        }
+        // X (master coords) of the boundary before insertion slot `insAt`
+        function insertionBoundaryX(insAt) {
+            const ppm = layoutPxPerMeter();
+            let bx = 50 + (2.5 * ppm);
+            for (let k = 0; k < insAt && k < segments.length; k++) bx += segments[k].width * ppm;
+            return bx;
+        }
+
+        // --- CROSS-SECTION DRAG-TO-REORDER (drag a segment left/right to reposition; a plain click still focuses it) ---
+        roadCanvas.addEventListener('mousedown', (e) => {
+            const idx = segmentIndexAtMasterX(canvasMasterX(e));
+            if (idx === null) return;
+            canvasDrag = { active: true, fromIndex: idx, startClientX: e.clientX, pointerX: canvasMasterX(e), moved: false };
+            roadCanvas.style.cursor = 'grabbing';
+            e.preventDefault();
+        });
+        window.addEventListener('mousemove', (e) => {
+            if (!canvasDrag.active) return;
+            canvasDrag.pointerX = canvasMasterX(e);
+            if (!canvasDrag.moved && Math.abs(e.clientX - canvasDrag.startClientX) > 4) canvasDrag.moved = true;
+            if (canvasDrag.moved) render();
+        });
+        window.addEventListener('mouseup', (e) => {
+            if (!canvasDrag.active) return;
+            const drag = canvasDrag;
+            canvasDrag = { active: false, fromIndex: null, startClientX: 0, pointerX: 0, moved: false };
+            roadCanvas.style.cursor = '';
+            if (drag.moved) {
+                let insAt = insertionIndexAtMasterX(canvasMasterX(e));
+                const [movedSeg] = segments.splice(drag.fromIndex, 1);
+                if (drag.fromIndex < insAt) insAt--;
+                insAt = Math.max(0, Math.min(segments.length, insAt));
+                segments.splice(insAt, 0, movedSeg);
+                renderSidebar();
+                render();
+                saveState();
+            } else {
+                focusSegmentCard(drag.fromIndex);
+            }
+        });
+        // Hover affordance — grab cursor over a draggable segment
+        roadCanvas.addEventListener('mousemove', (e) => {
+            if (canvasDrag.active) return;
+            roadCanvas.style.cursor = segmentIndexAtMasterX(canvasMasterX(e)) !== null ? 'grab' : '';
         });
 
         function focusSegmentCard(index) {
