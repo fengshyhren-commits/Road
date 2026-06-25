@@ -512,6 +512,70 @@
             return true;
         }
 
+        // Sprites are exported with a transparent margin (see tools/extract_user_assets.py),
+        // so anchoring the raw image bottom to the ground leaves the wheels floating in the air.
+        // This scans for the lowest opaque row once (cached) and returns it as a fraction of the
+        // image height, letting callers seat the visible content flat on the ground line.
+        const _contentBottomCache = new WeakMap();
+        function getContentBottomFraction(image) {
+            if (_contentBottomCache.has(image)) return _contentBottomCache.get(image);
+            let frac = 1;
+            try {
+                const w = image.naturalWidth, h = image.naturalHeight;
+                const probe = document.createElement('canvas');
+                probe.width = w; probe.height = h;
+                const pctx = probe.getContext('2d', { willReadFrequently: true });
+                pctx.drawImage(image, 0, 0);
+                const data = pctx.getImageData(0, 0, w, h).data;
+                // Solid mask only — faint de-whitening halos stay out so they can't bridge gaps.
+                const solid = new Uint8Array(w * h);
+                for (let i = 0; i < w * h; i++) solid[i] = data[i * 4 + 3] > 80 ? 1 : 0;
+                // Seat on the bottom of the LARGEST connected blob (the vehicle body). Some sprites
+                // carry thin crop-guide dashes along their edges; a naive "lowest opaque pixel" scan
+                // latches onto those dashes near the image bottom and the sprite floats in mid-air.
+                const label = new Int32Array(w * h).fill(-1);
+                const stack = [];
+                let bestBottom = -1, bestSize = 0;
+                for (let s = 0; s < w * h; s++) {
+                    if (!solid[s] || label[s] !== -1) continue;
+                    label[s] = s; stack.length = 0; stack.push(s);
+                    let size = 0, maxY = 0;
+                    while (stack.length) {
+                        const p = stack.pop(); size++;
+                        const py = (p / w) | 0, pxx = p - py * w;
+                        if (py > maxY) maxY = py;
+                        if (pxx > 0 && solid[p - 1] && label[p - 1] === -1) { label[p - 1] = s; stack.push(p - 1); }
+                        if (pxx < w - 1 && solid[p + 1] && label[p + 1] === -1) { label[p + 1] = s; stack.push(p + 1); }
+                        if (py > 0 && solid[p - w] && label[p - w] === -1) { label[p - w] = s; stack.push(p - w); }
+                        if (py < h - 1 && solid[p + w] && label[p + w] === -1) { label[p + w] = s; stack.push(p + w); }
+                    }
+                    if (size > bestSize) { bestSize = size; bestBottom = maxY; }
+                }
+                if (bestBottom >= 0) frac = (bestBottom + 1) / h;
+            } catch (e) {
+                frac = 1 - (8 / image.naturalHeight); // fall back to the known 8px export padding
+            }
+            _contentBottomCache.set(image, frac);
+            return frac;
+        }
+
+        // Draw a side-profile sprite so its visible content sits flat on groundY (no floating).
+        // Width is capped to maxWidth (when given) so a long vehicle stays roughly within its column.
+        function drawParkedSprite(ctx, image, x, groundY, targetHeight, maxWidth = 0, mirror = false) {
+            if (!isRasterReady(image)) return false;
+            const aspect = image.naturalWidth / image.naturalHeight;
+            let h = targetHeight;
+            let w = h * aspect;
+            if (maxWidth && w > maxWidth) { w = maxWidth; h = w / aspect; }
+            const bottomPad = (1 - getContentBottomFraction(image)) * h;
+            ctx.save();
+            ctx.translate(x, groundY + bottomPad);
+            if (mirror) ctx.scale(-1, 1);
+            ctx.drawImage(image, -w / 2, -h, w, h);
+            ctx.restore();
+            return true;
+        }
+
         // Bind events
         [
             toggleTopView,
@@ -671,6 +735,13 @@
                                         <option value="modern_front_white" ${seg.car === 'modern_front_white' ? 'selected' : ''}>灰色休旅車</option>
                                         <option value="scooter" ${seg.car === 'scooter' || seg.car === 'scooter_group' ? 'selected' : ''}>機車</option>
                                         <option value="motorcycle" ${seg.car === 'motorcycle' ? 'selected' : ''}>重型機車</option>
+                                    </select>
+                                </div>
+                                <div class="flex items-center space-x-1">
+                                    <span>車輛朝向:</span>
+                                    <select onchange="updateSegment('${seg.id}', 'carDirection', this.value)" class="bg-white border border-slate-200 rounded text-[10px] py-0.5 px-1 text-slate-600 focus:outline-none focus:ring-1 focus:ring-emerald-500">
+                                        <option value="away" ${(seg.carDirection || (seg.car && seg.car.includes('rear') ? 'away' : 'toward')) === 'away' ? 'selected' : ''}>看車頭（正面）</option>
+                                        <option value="toward" ${(seg.carDirection || (seg.car && seg.car.includes('rear') ? 'away' : 'toward')) === 'toward' ? 'selected' : ''}>看車尾（背面）</option>
                                     </select>
                                 </div>
                             ` : ''}
@@ -2792,12 +2863,15 @@
                     ? "#cbd2e6"
                     : "#ffffff";
 
+            // 4-wheelers read a touch large in the section, so scale every car down uniformly.
+            const carScale = 0.9;
+
             if (seg.car === "convertible") {
-                drawRasterAtGroundFacing(ctx, rasterAssets.convertibleSide, x, groundY, 48, elevationFacesFront);
+                drawRasterAtGroundFacing(ctx, rasterAssets.convertibleSide, x, groundY, 48 * carScale, elevationFacesFront);
                 return;
             }
             if (seg.car === "truck") {
-                drawRasterAtGround(ctx, rasterAssets.truckRear, x, groundY, 62);
+                drawRasterAtGround(ctx, rasterAssets.truckRear, x, groundY, 62 * carScale);
                 return;
             }
             if (seg.car === "scooter") {
@@ -2811,14 +2885,14 @@
 
             if (!elevationFacesFront) {
                 if (isClassic) {
-                    drawClassicCarRear(ctx, x, groundY, 1.25, bodyColor);
+                    drawClassicCarRear(ctx, x, groundY, 1.25 * carScale, bodyColor);
                 } else {
-                    drawModernCarRear(ctx, x, groundY, 1.25, bodyColor);
+                    drawModernCarRear(ctx, x, groundY, 1.25 * carScale, bodyColor);
                 }
             } else if (isClassic) {
-                drawClassicCarFront(ctx, x, groundY, 1.25, bodyColor);
+                drawClassicCarFront(ctx, x, groundY, 1.25 * carScale, bodyColor);
             } else {
-                drawModernCarFront(ctx, x, groundY, 1.25, bodyColor);
+                drawModernCarFront(ctx, x, groundY, 1.25 * carScale, bodyColor);
             }
         }
 
@@ -3165,38 +3239,20 @@
                         drawArtsyTree(targetCtx, midX, elevationY - curbShift, 1.35, treeStyle);
                     }
 
-                    // Render classic purple/grey beetle car or gorgeous Vespa scooters parked (on facility zone)
-                    if (toggleDecorations.checked) {
-                        if (seg.car === 'scooter_group') {
-                            // Render beautiful side-by-side parked retro Vespas!
-                            drawClassicScooterFront(targetCtx, midX - 25, elevationY - curbShift, 1.1, "#0d9488"); // Teal scooter
-                            drawClassicScooterFront(targetCtx, midX, elevationY - curbShift, 1.1, "#ea580c");      // Orange scooter
-                            drawClassicScooterFront(targetCtx, midX + 25, elevationY - curbShift, 1.1, "#ef4444");  // Red scooter
-                        } else if (seg.car === 'scooter') {
-                            drawRasterAtGroundFacing(
-                                targetCtx,
-                                rasterAssets.scooterAngle,
-                                midX,
-                                elevationY - curbShift,
-                                58,
-                                false
-                            );
+                    // Parked vehicles sit at ROAD level (elevationY) so they read at the same
+                    // height as the lane vehicles; the trees / utility box / pedestrians above
+                    // stay on the raised curb band. Two-wheelers use their flat side profile and
+                    // are seated so the wheels touch the ground (no more floating sprites).
+                    if (toggleDecorations.checked && seg.car !== 'none') {
+                        const parkGroundY = elevationY;            // road level, matches lane cars
+                        const parkMaxWidth = segWidthPx * 1.3;     // allow a little curbside overhang
+                        if (seg.car === 'scooter' || seg.car === 'scooter_group') {
+                            drawParkedSprite(targetCtx, rasterAssets.scooterSide, midX, parkGroundY, 42, parkMaxWidth);
                         } else if (seg.car === 'motorcycle') {
-                            drawRasterAtGroundFacing(
-                                targetCtx,
-                                rasterAssets.motorcycleAngle,
-                                midX,
-                                elevationY - curbShift,
-                                60,
-                                false
-                            );
-                        } else if (seg.car !== 'none') {
-                            drawLaneVehicle(
-                                targetCtx,
-                                { ...seg, carDirection: "toward" },
-                                midX,
-                                elevationY - curbShift
-                            );
+                            drawParkedSprite(targetCtx, rasterAssets.motorcycleSide, midX, parkGroundY, 42, parkMaxWidth);
+                        } else {
+                            // Render the parked car exactly like the matching lane car (same size + ground line).
+                            drawLaneVehicle(targetCtx, seg, midX, parkGroundY);
                         }
                     }
                 } else if (seg.type === 'median') {
