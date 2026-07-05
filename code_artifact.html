@@ -15,20 +15,20 @@
         body {
             font-family: 'Inter', 'Noto Sans TC', sans-serif;
             background-color: #f1f5f9;
-            font-size: 16px;
+            font-size: 14px;
         }
         .text-xs {
-            font-size: 0.875rem !important;
-            line-height: 1.35rem !important;
+            font-size: 0.75rem !important;
+            line-height: 1.15rem !important;
         }
         .text-sm {
-            font-size: 1rem !important;
-            line-height: 1.5rem !important;
+            font-size: 0.85rem !important;
+            line-height: 1.3rem !important;
         }
         [class*="text-[10px]"],
         [class*="text-[11px]"] {
-            font-size: 0.8125rem !important;
-            line-height: 1.25rem !important;
+            font-size: 0.6875rem !important;
+            line-height: 1.05rem !important;
         }
         select,
         input,
@@ -72,6 +72,21 @@
                 <p class="text-xs text-slate-500">Road Section Dynamic Generator & Rendering Platform</p>
             </div>
         </div>
+        <!-- 顯示切換（原工作區工具列，移入標題列讓畫布放大） -->
+        <div class="flex items-center space-x-4 px-4 py-1.5 bg-slate-50 border border-slate-200 rounded-lg">
+            <label class="flex items-center space-x-1.5 text-xs font-medium text-slate-600 cursor-pointer whitespace-nowrap">
+                <input type="checkbox" id="toggle-topview" checked class="rounded border-slate-300 text-emerald-600 focus:ring-emerald-500">
+                <span>平面圖</span>
+            </label>
+            <label class="flex items-center space-x-1.5 text-xs font-medium text-slate-600 cursor-pointer whitespace-nowrap">
+                <input type="checkbox" id="toggle-dimensions" checked class="rounded border-slate-300 text-emerald-600 focus:ring-emerald-500">
+                <span>尺寸與輔助線</span>
+            </label>
+            <label class="flex items-center space-x-1.5 text-xs font-medium text-slate-600 cursor-pointer whitespace-nowrap" title="樹木/人物/車輛等裝飾物；預覽編號不會匯出">
+                <input type="checkbox" id="toggle-decorations" checked class="rounded border-slate-300 text-emerald-600 focus:ring-emerald-500">
+                <span>裝飾物 (樹/人/車)</span>
+            </label>
+        </div>
         <!-- HEADER BUTTONS (Track 1) -->
         <div class="flex items-center space-x-3">
             <button onclick="importConfig()" class="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-sm font-medium transition duration-200 flex items-center space-x-2" title="載入先前匯出的配置 JSON 檔">
@@ -93,9 +108,9 @@
     <main class="flex-1 flex overflow-hidden">
         
         <!-- Sidebar Controls -->
-        <aside class="w-[460px] bg-white border-r border-slate-200 flex flex-col h-full shrink-0 shadow-lg shadow-slate-100/50">
+        <aside class="w-[372px] bg-white border-r border-slate-200 flex flex-col h-full shrink-0 shadow-lg shadow-slate-100/50">
             <!-- Sidebar Header -->
-            <div class="p-4 border-b border-slate-100 bg-slate-50/50 flex justify-between items-center">
+            <div class="px-4 py-2.5 border-b border-slate-100 bg-slate-50/50 flex justify-between items-center">
                 <span class="text-sm font-bold text-slate-700 flex items-center space-x-2">
                     <i class="fa-solid fa-sliders text-emerald-500"></i>
                     <span>路幅車道配置與物件參數設定</span>
@@ -148,7 +163,7 @@
 
             <!-- Building / Arcade Controls -->
             <details open class="group border-b border-stone-200 bg-gradient-to-br from-stone-50 to-amber-50/60">
-                <summary class="p-4 flex items-center justify-between cursor-pointer list-none select-none">
+                <summary class="px-4 py-2.5 flex items-center justify-between cursor-pointer list-none select-none">
                     <div>
                         <p class="text-xs font-bold text-stone-700 flex items-center gap-2">
                             <i class="fa-solid fa-building text-amber-700"></i>
@@ -188,6 +203,8 @@
                             <option value="ped3" selected>城市散步</option>
                             <option value="ped4">市民慢跑</option>
                             <option value="ped5">提購物袋</option>
+                            <option value="ped6">輪椅使用者</option>
+                            <option value="ped7">長者拄杖</option>
                         </select>
                     </label>
                     <label class="block">
@@ -199,6 +216,8 @@
                             <option value="ped3">城市散步</option>
                             <option value="ped4">市民慢跑</option>
                             <option value="ped5">提購物袋</option>
+                            <option value="ped6">輪椅使用者</option>
+                            <option value="ped7">長者拄杖</option>
                         </select>
                     </label>
                     <label class="block">
@@ -227,7 +246,7 @@
             </details>
 
             <!-- List of Segments (Scrollable) -->
-            <div id="segments-container" class="flex-1 overflow-y-auto p-4 space-y-3">
+            <div id="segments-container" class="flex-1 overflow-y-auto p-3 space-y-2.5">
                 <!-- Dynamically injected via JS -->
             </div>
 
@@ -305,27 +324,6 @@
         <!-- Center/Right Canvas Workspace -->
         <section class="flex-1 bg-slate-100 p-6 flex flex-col overflow-hidden relative">
             
-            <!-- Floating control helper -->
-            <div class="mb-4 flex justify-between items-center bg-white p-3 rounded-xl shadow-sm border border-slate-200/60">
-                <div class="flex items-center space-x-6">
-                    <label class="flex items-center space-x-2 text-xs font-medium text-slate-600 cursor-pointer">
-                        <input type="checkbox" id="toggle-topview" checked class="rounded border-slate-300 text-emerald-600 focus:ring-emerald-500">
-                        <span>顯示平面圖 (Top-down View)</span>
-                    </label>
-                    <label class="flex items-center space-x-2 text-xs font-medium text-slate-600 cursor-pointer">
-                        <input type="checkbox" id="toggle-dimensions" checked class="rounded border-slate-300 text-emerald-600 focus:ring-emerald-500">
-                        <span>顯示尺寸細節與輔助線</span>
-                    </label>
-                    <label class="flex items-center space-x-2 text-xs font-medium text-slate-600 cursor-pointer">
-                        <input type="checkbox" id="toggle-decorations" checked class="rounded border-slate-300 text-emerald-600 focus:ring-emerald-500">
-                        <span>啟用豐富裝飾物 (樹/人/車)</span>
-                    </label>
-                </div>
-                <div class="text-xs text-slate-500 bg-slate-100 border border-slate-200 rounded-lg px-3 py-1.5 whitespace-nowrap">
-                    <i class="fa-solid fa-eye mr-1 text-emerald-600"></i> 預覽編號不會匯出
-                </div>
-            </div>
-
             <!-- Canvas Container -->
             <div id="canvas-container" class="flex-1 min-h-0 bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-inner flex items-center justify-center p-4 relative">
                 <canvas id="roadCanvas" class="block shrink-0 cursor-pointer transition-shadow bg-white" title="點擊路段可跳至左側對應設定卡片"></canvas>
@@ -340,7 +338,9 @@
     </main>
 
     <!-- Embedded raster assets (data URLs) — keeps the canvas untainted so PNG export works from file:// -->
-    <script src="assets_embedded.js?v=20260625-230044"></script>
+    <script src="assets_embedded.js?v=20260705-010000"></script>
+    <!-- 輪椅使用者與長者剪影（由 裁切工具-輪椅老人.html 產生；缺檔時會改用一般人物剪影） -->
+    <script src="person_assets_embedded.js?v=20260705-010000"></script>
 
     <!-- Canvas Generation & Logic Script -->
     <script>
@@ -458,6 +458,8 @@
             parentChild: loadRasterAsset('assets/user-people-vehicles/person-parent-child-side.png'),
             jogger: loadRasterAsset('assets/user-people-vehicles/person-jogger-side.png'),
             shopper: loadRasterAsset('assets/user-people-vehicles/person-shopper-side.png'),
+            wheelchair: loadRasterAsset('assets/user-people-vehicles/person-wheelchair-side.png'),
+            elderly: loadRasterAsset('assets/user-people-vehicles/person-elderly-side.png'),
             sedanFront: loadRasterAsset('assets/user-people-vehicles/car-sedan-front.png'),
             sedanRear: loadRasterAsset('assets/user-people-vehicles/car-sedan-rear.png'),
             sedanTop: loadRasterAsset('assets/user-people-vehicles/car-sedan-top.png'),
@@ -473,7 +475,9 @@
             scooterFront: loadRasterAsset('assets/user-people-vehicles/scooter-front.png'),
             motorcycleSide: loadRasterAsset('assets/user-people-vehicles/motorcycle-side.png'),
             motorcycleAngle: loadRasterAsset('assets/user-people-vehicles/motorcycle-angle.png'),
-            motorcycleFront: loadRasterAsset('assets/user-people-vehicles/motorcycle-front.png')
+            motorcycleFront: loadRasterAsset('assets/user-people-vehicles/motorcycle-front.png'),
+            motorcycleRear: loadRasterAsset('assets/user-people-vehicles/motorcycle-rear.png'),
+            motorcycleTop: loadRasterAsset('assets/user-people-vehicles/motorcycle-top.png')
         };
 
         function loadRasterAsset(src) {
@@ -622,7 +626,7 @@
                 const widthLimits = getWidthLimits(seg);
 
                 const card = document.createElement('div');
-                card.className = `p-4 rounded-xl border transition-all ${
+                card.className = `p-3 rounded-xl border transition-all ${
                     seg.type === 'sidewalk' ? 'bg-amber-50/40 border-amber-200' :
                     seg.type === 'facility' ? 'bg-sky-50/40 border-sky-200' :
                     seg.type === 'median' ? 'bg-emerald-50/40 border-emerald-200' :
@@ -636,7 +640,7 @@
                 const laneWarning = seg.type === 'lane' && (seg.width < laneRec.min - 0.001 || seg.width > laneRec.max + 0.001);
 
                 card.innerHTML = `
-                    <div class="flex items-center justify-between mb-3">
+                    <div class="flex items-center justify-between mb-2">
                         <div class="flex items-center space-x-2">
                             <span class="drag-handle cursor-grab active:cursor-grabbing text-slate-300 hover:text-slate-500 px-0.5 -ml-1" title="按住拖曳可調整路段順序">
                                 <i class="fa-solid fa-grip-vertical"></i>
@@ -778,13 +782,14 @@
                                         <option value="truck" ${seg.car === 'truck' ? 'selected' : ''}>貨車</option>
                                         <option value="scooter" ${seg.car === 'scooter' ? 'selected' : ''}>機車</option>
                                         <option value="motorcycle" ${seg.car === 'motorcycle' ? 'selected' : ''}>重型機車</option>
+                                        <option value="car_scooter" ${seg.car === 'car_scooter' ? 'selected' : ''}>汽車＋機車</option>
                                     </select>
                                 </div>
                                 <div class="flex items-center space-x-1">
                                     <span>行駛方向:</span>
                                     <select onchange="updateSegment('${seg.id}', 'carDirection', this.value)" class="bg-white border border-slate-200 rounded text-[10px] py-0.5 px-1 text-slate-600 focus:outline-none focus:ring-1 focus:ring-emerald-500">
-                                        <option value="toward" ${(seg.carDirection || (seg.car.includes('rear') ? 'away' : 'toward')) === 'toward' ? 'selected' : ''}>朝向視線（看車頭）</option>
-                                        <option value="away" ${(seg.carDirection || (seg.car.includes('rear') ? 'away' : 'toward')) === 'away' ? 'selected' : ''}>背向視線（看車尾）</option>
+                                        <option value="away" ${(seg.carDirection || (seg.car.includes('rear') ? 'away' : 'toward')) === 'away' ? 'selected' : ''}>看車頭（正面）</option>
+                                        <option value="toward" ${(seg.carDirection || (seg.car.includes('rear') ? 'away' : 'toward')) === 'toward' ? 'selected' : ''}>看車尾（背面）</option>
                                     </select>
                                 </div>
                             ` : ''}
@@ -809,6 +814,8 @@
                                         <option value="ped3" ${seg.ped === 'ped3' ? 'selected' : ''}>城市散步</option>
                                         <option value="ped4" ${seg.ped === 'ped4' ? 'selected' : ''}>市民慢跑</option>
                                         <option value="ped5" ${seg.ped === 'ped5' ? 'selected' : ''}>提購物袋</option>
+                                        <option value="ped6" ${seg.ped === 'ped6' ? 'selected' : ''}>輪椅使用者</option>
+                                        <option value="ped7" ${seg.ped === 'ped7' ? 'selected' : ''}>長者拄杖</option>
                                         <option value="cyclist" ${seg.ped === 'cyclist' ? 'selected' : ''}>騎自行車</option>
                                     </select>
                                 </div>
@@ -2317,10 +2324,14 @@
                 ped2: rasterAssets.parentChild,
                 ped3: rasterAssets.cityWalker,
                 ped4: rasterAssets.jogger,
-                ped5: rasterAssets.shopper
+                ped5: rasterAssets.shopper,
+                ped6: rasterAssets.wheelchair,
+                ped7: rasterAssets.elderly
             };
+            // 輪椅使用者(坐姿)與長者(略微駝背)高度低於 1.7m 標準人
+            const pedHeights = { ped6: 52, ped7: 66 };
             const image = people[type] || rasterAssets.cityWalker;
-            if (drawRasterAtGround(ctx, image, x, y, 70 * scale)) return;
+            if (drawRasterAtGround(ctx, image, x, y, (pedHeights[type] || 70) * scale)) return;
 
             drawArchitecturalPerson(ctx, x, y, scale, "walk", {
                 coat: "#6c7f9b",
@@ -2460,6 +2471,30 @@
         }
 
         function drawTopViewVehicle(ctx, x, y, widthPx, lengthPx, type, direction = "toward") {
+            // 汽車＋機車：平面圖上小轎車與機車「左右併行」於同一車道
+            if (type === "car_scooter") {
+                ctx.save();
+                ctx.translate(x, y);
+                if (direction === "away") ctx.rotate(Math.PI);
+                const carImg = rasterAssets.sedanTop;
+                const bikeImg = isRasterReady(rasterAssets.motorcycleTop)
+                    ? rasterAssets.motorcycleTop
+                    : rasterAssets.scooterAngle;
+                const carOffsetX = -Math.min(widthPx * 0.19, 24);
+                const bikeOffsetX = Math.min(widthPx * 0.24, 30);
+                if (isRasterReady(carImg)) {
+                    const carLen = Math.min(lengthPx * 0.78, 66);
+                    const carW = carLen * (carImg.naturalWidth / carImg.naturalHeight);
+                    ctx.drawImage(carImg, carOffsetX - carW / 2, -carLen / 2, carW, carLen);
+                }
+                if (isRasterReady(bikeImg)) {
+                    const bikeLen = 44;
+                    const bikeW = bikeLen * (bikeImg.naturalWidth / bikeImg.naturalHeight);
+                    ctx.drawImage(bikeImg, bikeOffsetX - bikeW / 2, -bikeLen / 2, bikeW, bikeLen);
+                }
+                ctx.restore();
+                return;
+            }
             const topImages = {
                 classic_rear: rasterAssets.sedanTop,
                 classic_rear_purple: rasterAssets.sedanTop,
@@ -2468,7 +2503,10 @@
                 convertible: rasterAssets.convertibleTop,
                 truck: rasterAssets.truckTop,
                 scooter: rasterAssets.scooterAngle,
-                motorcycle: rasterAssets.motorcycleAngle
+                // 車道上的機車改用正上視圖（缺素材時回退為斜視圖）
+                motorcycle: isRasterReady(rasterAssets.motorcycleTop)
+                    ? rasterAssets.motorcycleTop
+                    : rasterAssets.motorcycleAngle
             };
             const topImage = topImages[type] || rasterAssets.sedanTop;
             if (isRasterReady(topImage)) {
@@ -2671,14 +2709,17 @@
                     ped2: rasterAssets.parentChild,
                     ped3: rasterAssets.cityWalker,
                     ped4: rasterAssets.jogger,
-                    ped5: rasterAssets.shopper
+                    ped5: rasterAssets.shopper,
+                    ped6: rasterAssets.wheelchair,
+                    ped7: rasterAssets.elderly
                 };
+                const arcadePedHeights = { ped6: 50, ped7: 64 };
                 drawRasterAtGroundFacing(
                     ctx,
                     people[personType] || rasterAssets.cityWalker,
                     personX,
                     groundY - 2,
-                    68,
+                    arcadePedHeights[personType] || 68,
                     side === "right"
                 );
             }
@@ -2852,7 +2893,7 @@
             return seg.carDirection || (seg.car && seg.car.includes("rear") ? "away" : "toward");
         }
 
-        function drawLaneVehicle(ctx, seg, x, groundY) {
+        function drawLaneVehicle(ctx, seg, x, groundY, laneWidthPx = 0) {
             const direction = getCarDirection(seg);
             // Plan view looks down the road; elevation looks across it, so front/rear is inverse.
             const elevationFacesFront = direction === "away";
@@ -2865,6 +2906,8 @@
 
             // 4-wheelers read a touch large in the section, so scale every car down uniformly.
             const carScale = 0.9;
+            // 白色轎車 (classic) 比較胖，額外縮小 0.9 倍
+            const classicSquish = 0.9;
 
             if (seg.car === "convertible") {
                 drawRasterAtGroundFacing(ctx, rasterAssets.convertibleSide, x, groundY, 48 * carScale, elevationFacesFront);
@@ -2879,21 +2922,62 @@
                 return;
             }
             if (seg.car === "motorcycle") {
-                drawRasterAtGround(ctx, rasterAssets.motorcycleFront, x, groundY + 2, 64);
+                // 依行駛方向切換車頭／車尾視角（缺車尾素材時回退為車頭）
+                if (elevationFacesFront || !isRasterReady(rasterAssets.motorcycleRear)) {
+                    drawRasterAtGround(ctx, rasterAssets.motorcycleFront, x, groundY + 2, 64);
+                } else {
+                    drawRasterAtGround(ctx, rasterAssets.motorcycleRear, x, groundY + 2, 64);
+                }
+                return;
+            }
+            if (seg.car === "car_scooter") {
+                // 汽車＋機車併行：小台轎車靠一側，機車在另一側
+                // 依行駛方向整組切換：看車頭 → 車頭＋機車正面；看車尾 → 車尾＋機車背面
+                const spread = laneWidthPx ? Math.min(laneWidthPx * 0.24, 34) : 30;
+                // 汽車略小於一般車道車輛；機車比汽車矮（約真實比例 1.1m : 1.45m）
+                const smallCarScale = 1.15 * carScale * classicSquish;
+                const bikeHeight = 42;
+                if (elevationFacesFront) {
+                    drawClassicCarFront(ctx, x - spread, groundY, smallCarScale, "#ffffff");
+                    drawRasterAtGround(ctx, rasterAssets.scooterFront, x + spread + 6, groundY + 2, bikeHeight);
+                } else {
+                    drawClassicCarRear(ctx, x - spread, groundY, smallCarScale, "#ffffff");
+                    const rearBike = isRasterReady(rasterAssets.motorcycleRear)
+                        ? rasterAssets.motorcycleRear
+                        : rasterAssets.scooterFront;
+                    drawRasterAtGround(ctx, rearBike, x + spread + 6, groundY + 2, bikeHeight);
+                }
                 return;
             }
 
             if (!elevationFacesFront) {
                 if (isClassic) {
-                    drawClassicCarRear(ctx, x, groundY, 1.25 * carScale, bodyColor);
+                    drawClassicCarRear(ctx, x, groundY, 1.25 * carScale * classicSquish, bodyColor);
                 } else {
                     drawModernCarRear(ctx, x, groundY, 1.25 * carScale, bodyColor);
                 }
             } else if (isClassic) {
-                drawClassicCarFront(ctx, x, groundY, 1.25 * carScale, bodyColor);
+                drawClassicCarFront(ctx, x, groundY, 1.25 * carScale * classicSquish, bodyColor);
             } else {
                 drawModernCarFront(ctx, x, groundY, 1.25 * carScale, bodyColor);
             }
+        }
+
+        // Vertical layout bands shared by drawEverything / render / exportImage.
+        // Building heights are fixed-pixel (see drawArcadeBuilding: arcade 132px + 112px per upper
+        // floor), so the section band shrinks/grows with the tallest selected building.
+        function computeLayout() {
+            const leftF = parseInt(leftBuildingFloors.value, 10) || 3;
+            const rightF = parseInt(rightBuildingFloors.value, 10) || 4;
+            const maxFloors = Math.max(leftF, rightF);
+            const buildingHeightPx = 132 + ((maxFloors - 1) * 112); // mirrors drawArcadeBuilding
+            const elevationY = 40 + buildingHeightPx;      // 40px breathing room above the roofline
+            const labelSectionY = elevationY + 200;        // section name labels occupy elevationY..+185
+            const topViewY = elevationY + 290;
+            const topViewHeight = 150;
+            const bottomBracketY = topViewY + topViewHeight + 45;
+            const totalHeight = bottomBracketY + 38 + 26;  // sub-brackets + bottom margin
+            return { buildingHeightPx, elevationY, labelSectionY, topViewY, topViewHeight, bottomBracketY, totalHeight };
         }
 
         // --- MASTER SYSTEM DRAWING FUNCTION (Enables Retina-Sharp Display & Pristine 2K Export!) ---
@@ -2920,12 +3004,14 @@
 
             const startX = 50 + (buildingWidthM * pxPerMeter); // Start of active street structure
 
-            // Define vertical layout bands
-            const topViewY = 100;
-            const topViewHeight = 150;
-            const labelSectionY = 270;
+            // Define vertical layout bands — 剖面(立面)在上、平面圖在下
+            // 高度依建築樓層動態計算，頂端不留多餘空白（上方總寬標註已移除，僅保留下方）
+            const layout = computeLayout();
+            const elevationY = layout.elevationY;         // Cross-section ground line
+            const labelSectionY = layout.labelSectionY;   // Dimension tags: between the section labels and the plan view
             const labelSectionHeight = 50;
-            const elevationY = 920; // Five true-scale 4 m floors retain a clear gap below the plan view.
+            const topViewY = layout.topViewY;             // Plan / top-down view sits BELOW the cross-section
+            const topViewHeight = layout.topViewHeight;
 
             // --- RENDER LEFT & RIGHT ARCADE BUILDINGS ---
             const buildingWidthPx = buildingWidthM * pxPerMeter;
@@ -3122,15 +3208,15 @@
                     targetCtx.setLineDash([5, 5]);
                     
                     targetCtx.beginPath();
-                    targetCtx.moveTo(currentX, topViewY + topViewHeight);
-                    targetCtx.lineTo(currentX, elevationY);
+                    targetCtx.moveTo(currentX, elevationY + 185);
+                    targetCtx.lineTo(currentX, topViewY);
                     targetCtx.stroke();
 
                     // Final right border dashed line
                     if (index === segments.length - 1) {
                         targetCtx.beginPath();
-                        targetCtx.moveTo(currentX + segWidthPx, topViewY + topViewHeight);
-                        targetCtx.lineTo(currentX + segWidthPx, elevationY);
+                        targetCtx.moveTo(currentX + segWidthPx, elevationY + 185);
+                        targetCtx.lineTo(currentX + segWidthPx, topViewY);
                         targetCtx.stroke();
                     }
                     targetCtx.setLineDash([]); // Reset line dashes
@@ -3247,12 +3333,13 @@
                         const parkGroundY = elevationY;            // road level, matches lane cars
                         const parkMaxWidth = segWidthPx * 1.3;     // allow a little curbside overhang
                         if (seg.car === 'scooter' || seg.car === 'scooter_group') {
-                            drawParkedSprite(targetCtx, rasterAssets.scooterSide, midX, parkGroundY, 42, parkMaxWidth);
+                            // 停放機車放大 1.2 倍
+                            drawParkedSprite(targetCtx, rasterAssets.scooterSide, midX, parkGroundY, 50.4, parkMaxWidth);
                         } else if (seg.car === 'motorcycle') {
                             drawParkedSprite(targetCtx, rasterAssets.motorcycleSide, midX, parkGroundY, 42, parkMaxWidth);
                         } else {
                             // Render the parked car exactly like the matching lane car (same size + ground line).
-                            drawLaneVehicle(targetCtx, seg, midX, parkGroundY);
+                            drawLaneVehicle(targetCtx, seg, midX, parkGroundY, segWidthPx);
                         }
                     }
                 } else if (seg.type === 'median') {
@@ -3266,7 +3353,7 @@
                     }
                 } else if (seg.type === 'lane') {
                     if (toggleDecorations.checked && seg.car !== 'none') {
-                        drawLaneVehicle(targetCtx, seg, midX, elevationY);
+                        drawLaneVehicle(targetCtx, seg, midX, elevationY, segWidthPx);
                     }
                 }
 
@@ -3329,11 +3416,13 @@
                 if (showEditorGuides) {
                     // Hover highlight synced with the sidebar card under the cursor
                     if (activeSegmentIndex === index) {
+                        const hlTop = 28;
+                        const hlBottom = topViewY + topViewHeight;
                         targetCtx.fillStyle = "rgba(16, 185, 129, 0.08)";
-                        targetCtx.fillRect(currentX, topViewY, segWidthPx, (elevationY + 185) - topViewY);
+                        targetCtx.fillRect(currentX, hlTop, segWidthPx, hlBottom - hlTop);
                         targetCtx.strokeStyle = "rgba(16, 185, 129, 0.75)";
                         targetCtx.lineWidth = 2;
-                        targetCtx.strokeRect(currentX + 1, topViewY + 1, segWidthPx - 2, (elevationY + 185) - topViewY - 2);
+                        targetCtx.strokeRect(currentX + 1, hlTop + 1, segWidthPx - 2, hlBottom - hlTop - 2);
                     }
 
                     // Segment index badge (matches the card numbers in the sidebar)
@@ -3361,8 +3450,8 @@
                 let dx = startX;
                 for (let k = 0; k < canvasDrag.fromIndex && k < segments.length; k++) dx += segments[k].width * pxPerMeter;
                 const dW = (segments[canvasDrag.fromIndex] ? segments[canvasDrag.fromIndex].width : 0) * pxPerMeter;
-                const topY = topViewY - 24;
-                const botY = elevationY + 60;
+                const topY = 28;
+                const botY = topViewY + topViewHeight + 24;
                 targetCtx.save();
                 // Highlight the column being dragged
                 targetCtx.fillStyle = "rgba(16,185,129,0.12)";
@@ -3382,8 +3471,7 @@
                 targetCtx.restore();
             }
 
-            // --- TOTAL ROAD WIDTH DIMENSION BRACKETS (TOP BAND + BELOW THE CROSS-SECTION) ---
-            const totalBracketY = 42;
+            // --- TOTAL ROAD WIDTH DIMENSION BRACKET (BOTTOM ONLY — 上方標註已移除讓圖面放大) ---
             const bracketEndX = startX + (totalMeters * pxPerMeter);
             const totalLabel = `路幅總寬度 ${totalMeters.toFixed(2)} M`;
 
@@ -3420,8 +3508,8 @@
                 targetCtx.fillText(totalLabel, labelX, y + 1);
             };
 
-            drawTotalWidthBracket(totalBracketY);              // Above the plan view
-            drawTotalWidthBracket(elevationY + 215);           // Below the cross-section name labels
+            const bottomBracketY = layout.bottomBracketY;
+            drawTotalWidthBracket(bottomBracketY);             // Below the plan view
 
             // --- ROAD NAME TITLE (centered, directly above the total-width label) ---
             if (roadName && roadName.trim()) {
@@ -3442,8 +3530,7 @@
                     targetCtx.fillStyle = "#ffffff";
                     targetCtx.fillText(rnText, rnCenterX, rnY + 1);
                 };
-                drawRoadName(totalBracketY);            // Above the top 路幅總寬度 label
-                drawRoadName(elevationY + 215);         // Above the bottom 路幅總寬度 label
+                drawRoadName(bottomBracketY);           // Above the bottom 路幅總寬度 label
             }
 
             // --- LEFT / RIGHT PEDESTRIAN-REALM SUB-BRACKETS ---
@@ -3521,8 +3608,7 @@
                     }
                 };
 
-                drawSubBrackets(totalBracketY + 38);     // Below the top total bracket
-                drawSubBrackets(elevationY + 215 + 38);  // Below the bottom total bracket (under the section)
+                drawSubBrackets(bottomBracketY + 38);    // Below the bottom total bracket (under the plan view)
             }
 
             targetCtx.restore();
@@ -3536,7 +3622,7 @@
                 const canvasContainer = document.getElementById('canvas-container');
 
                 const baseWidth = 1050;
-                const baseHeight = 1190; // Extra band for the bottom total-width bracket
+                const baseHeight = computeLayout().totalHeight; // 依樓層動態計算，頂端不留空白
                 const aspectRatio = baseWidth / baseHeight;
 
                 // Fit inside both available width and height while preserving 1050:880.
@@ -3577,7 +3663,7 @@
             const buildExportCanvas = () => {
                 const exportCanvas = document.createElement('canvas');
                 exportCanvas.width = 2560; // Standard master 2K Width
-                exportCanvas.height = Math.round(2560 * (1190 / 1050));
+                exportCanvas.height = Math.round(2560 * (computeLayout().totalHeight / 1050));
                 const exportCtx = exportCanvas.getContext('2d');
                 drawEverything(exportCtx, exportCanvas.width, exportCanvas.height, { showEditorGuides: false });
                 return exportCanvas;
