@@ -3439,11 +3439,15 @@
                 const f = parseInt(v, 10) || 3;
                 return 132 + ((f - 1) * 112); // mirrors drawArcadeBuilding
             };
+            // 兩側環境與路上裝飾都隨路幅縮放，剖面帶高度也跟著縮放
+            const totalM = segments.reduce((sum, s) => sum + s.width, 0);
+            const sideScale = ((1050 - 100) / (totalM + 5)) / 38; // 與 drawEverything 的 spriteScale 相同
             const buildingHeightPx = Math.max(
                 sideProfileHeight(leftBuildingFloors.value),
-                sideProfileHeight(rightBuildingFloors.value)
-            );
-            const elevationY = 40 + buildingHeightPx;      // 40px breathing room above the roofline
+                sideProfileHeight(rightBuildingFloors.value),
+                230 // 路上行道樹的最高需求（樹冠抬高後約 220px）
+            ) * sideScale;
+            const elevationY = Math.round(40 + buildingHeightPx); // 40px breathing room above the roofline
             const labelSectionY = elevationY + 200;        // section name labels occupy elevationY..+185
             const topViewY = elevationY + 290;
             const topViewHeight = 150;
@@ -3512,20 +3516,25 @@
 
             const leftPerson = toggleDecorations.checked ? leftArcadePeople.value : "none";
             const rightPerson = toggleDecorations.checked ? rightArcadePeople.value : "none";
-            if (leftZoneMode === 'river') {
-                drawRiverside(targetCtx, 50, buildingWidthPx, elevationY, "left", leftPerson);
-            } else if (leftZoneMode === 'green') {
-                drawGreenland(targetCtx, 50, buildingWidthPx, elevationY, "left", leftPerson);
-            } else {
-                drawArcadeBuilding(targetCtx, 50, buildingWidthPx, elevationY, leftFloors, "left", leftPerson, leftArcadeSign.value);
-            }
-            if (rightZoneMode === 'river') {
-                drawRiverside(targetCtx, rightBuildingStartX, buildingWidthPx, elevationY, "right", rightPerson);
-            } else if (rightZoneMode === 'green') {
-                drawGreenland(targetCtx, rightBuildingStartX, buildingWidthPx, elevationY, "right", rightPerson);
-            } else {
-                drawArcadeBuilding(targetCtx, rightBuildingStartX, buildingWidthPx, elevationY, rightFloors, "right", rightPerson, rightArcadeSign.value);
-            }
+
+            // 兩側環境（剖面）隨路幅一起縮放：以地面線為錨點做等比縮放，
+            // 寬度先除回去避免重複縮放（rendered width 仍 = buildingWidthPx）
+            const drawSideZoneScaled = (x, mode, floors, side, personType, signStyle) => {
+                targetCtx.save();
+                targetCtx.translate(x, elevationY);
+                targetCtx.scale(spriteScale, spriteScale);
+                const w = buildingWidthPx / spriteScale;
+                if (mode === 'river') {
+                    drawRiverside(targetCtx, 0, w, 0, side, personType);
+                } else if (mode === 'green') {
+                    drawGreenland(targetCtx, 0, w, 0, side, personType);
+                } else {
+                    drawArcadeBuilding(targetCtx, 0, w, 0, floors, side, personType, signStyle);
+                }
+                targetCtx.restore();
+            };
+            drawSideZoneScaled(50, leftZoneMode, leftFloors, "left", leftPerson, leftArcadeSign.value);
+            drawSideZoneScaled(rightBuildingStartX, rightZoneMode, rightFloors, "right", rightPerson, rightArcadeSign.value);
 
             // --- DYNAMIC RENDER SEGMENTS ---
             let currentX = startX;
@@ -3861,7 +3870,8 @@
                 } else if (seg.type === 'median') {
                     const medianTreeStyle = seg.treeStyle || "none";
                     if (medianTreeStyle !== "none") {
-                        drawArtsyTree(targetCtx, midX, elevationY - medianShift, 1.25 * spriteScale, medianTreeStyle);
+                        // 樹穴降到與人行道/設施帶同高（原本墊在 9px 的分隔島面上顯得偏高）
+                        drawArtsyTree(targetCtx, midX, elevationY - curbShift, 1.25 * spriteScale, medianTreeStyle);
                     }
                 } else if (seg.type === 'bike') {
                     if (toggleDecorations.checked && seg.car === 'bike') {
