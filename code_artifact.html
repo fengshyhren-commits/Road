@@ -86,6 +86,13 @@
                 <input type="checkbox" id="toggle-decorations" checked class="rounded border-slate-300 text-emerald-600 focus:ring-emerald-500">
                 <span>裝飾物 (樹/人/車)</span>
             </label>
+            <label class="flex items-center space-x-1.5 text-xs font-medium text-slate-600 cursor-pointer whitespace-nowrap" title="道路名稱在畫布上的顯示位置">
+                <span>路名位置</span>
+                <select id="road-name-pos" class="text-xs border border-slate-300 rounded-md px-1.5 py-0.5 bg-white text-slate-700 focus:ring-emerald-500 focus:border-emerald-500">
+                    <option value="bottom" selected>原位置(下方)</option>
+                    <option value="top">剖面圖正上方</option>
+                </select>
+            </label>
         </div>
         <!-- HEADER BUTTONS (Track 1) -->
         <div class="flex items-center space-x-3">
@@ -167,9 +174,9 @@
                     <div>
                         <p class="text-xs font-bold text-stone-700 flex items-center gap-2">
                             <i class="fa-solid fa-building text-amber-700"></i>
-                            兩側騎樓建築
+                            兩側環境（騎樓／河岸／綠地）
                         </p>
-                        <p class="text-[11px] text-stone-500 mt-0.5">樓層可分側設定，人物會站在騎樓退縮空間內</p>
+                        <p class="text-[11px] text-stone-500 mt-0.5">可分側設定型式；騎樓人物選項在河岸/綠地會站在步道或草地上</p>
                     </div>
                     <span class="flex items-center gap-2 px-2 py-1 rounded-md bg-white/80 border border-stone-200 text-[10px] font-bold text-stone-500">
                         點擊收合
@@ -179,19 +186,23 @@
                 <div class="px-4 pb-4">
                 <div class="grid grid-cols-2 gap-2">
                     <label class="block">
-                        <span class="block text-[11px] font-bold text-stone-500 mb-1">左側樓層</span>
+                        <span class="block text-[11px] font-bold text-stone-500 mb-1">左側型式</span>
                         <select id="left-building-floors" class="w-full bg-white border border-stone-200 rounded-lg text-xs py-1.5 px-2 text-stone-700 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500">
-                            <option value="2">2 樓</option>
-                            <option value="3" selected>3 樓</option>
-                            <option value="4">4 樓</option>
+                            <option value="2">騎樓 2 樓</option>
+                            <option value="3" selected>騎樓 3 樓</option>
+                            <option value="4">騎樓 4 樓</option>
+                            <option value="river">河岸（水岸堤防）</option>
+                            <option value="green">綠地（草坡植栽）</option>
                         </select>
                     </label>
                     <label class="block">
-                        <span class="block text-[11px] font-bold text-stone-500 mb-1">右側樓層</span>
+                        <span class="block text-[11px] font-bold text-stone-500 mb-1">右側型式</span>
                         <select id="right-building-floors" class="w-full bg-white border border-stone-200 rounded-lg text-xs py-1.5 px-2 text-stone-700 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500">
-                            <option value="2">2 樓</option>
-                            <option value="3">3 樓</option>
-                            <option value="4" selected>4 樓</option>
+                            <option value="2">騎樓 2 樓</option>
+                            <option value="3">騎樓 3 樓</option>
+                            <option value="4" selected>騎樓 4 樓</option>
+                            <option value="river">河岸（水岸堤防）</option>
+                            <option value="green">綠地（草坡植栽）</option>
                         </select>
                     </label>
                     <label class="block">
@@ -341,6 +352,8 @@
     <script src="assets_embedded.js?v=20260705-010000"></script>
     <!-- 輪椅使用者與長者剪影（由 裁切工具-輪椅老人.html 產生；缺檔時會改用一般人物剪影） -->
     <script src="person_assets_embedded.js?v=20260705-010000"></script>
+    <!-- 新版機車/重型機車各視角素材（由 裁切工具-機車各視角.html 產生；覆蓋舊 scooter/motorcycle 素材） -->
+    <script src="bike_assets_embedded.js?v=20260709-010000"></script>
 
     <!-- Canvas Generation & Logic Script -->
     <script>
@@ -445,6 +458,8 @@
         const leftArcadeSign = document.getElementById('left-arcade-sign');
         const rightArcadeSign = document.getElementById('right-arcade-sign');
         const roadNameInput = document.getElementById('road-name-input');
+        const roadNamePosSelect = document.getElementById('road-name-pos');
+        let roadNamePos = 'bottom'; // 'bottom' = 原位置(路幅總寬度上方) / 'top' = 剖面圖正上方
         const roadWidthInput = document.getElementById('road-width-input');
         const roadWidthLockBtn = document.getElementById('road-width-lock');
         const roadWidthHint = document.getElementById('road-width-hint');
@@ -473,12 +488,24 @@
             scooterSide: loadRasterAsset('assets/user-people-vehicles/scooter-side.png'),
             scooterAngle: loadRasterAsset('assets/user-people-vehicles/scooter-angle.png'),
             scooterFront: loadRasterAsset('assets/user-people-vehicles/scooter-front.png'),
+            scooterRear: loadRasterAsset('assets/user-people-vehicles/scooter-rear.png'),
+            scooterTop: loadRasterAsset('assets/user-people-vehicles/scooter-top.png'),
+            scooterRiderFront: loadRasterAsset('assets/user-people-vehicles/scooter-rider-front.png'),
+            scooterRiderRear: loadRasterAsset('assets/user-people-vehicles/scooter-rider-rear.png'),
             motorcycleSide: loadRasterAsset('assets/user-people-vehicles/motorcycle-side.png'),
             motorcycleAngle: loadRasterAsset('assets/user-people-vehicles/motorcycle-angle.png'),
             motorcycleFront: loadRasterAsset('assets/user-people-vehicles/motorcycle-front.png'),
             motorcycleRear: loadRasterAsset('assets/user-people-vehicles/motorcycle-rear.png'),
-            motorcycleTop: loadRasterAsset('assets/user-people-vehicles/motorcycle-top.png')
+            motorcycleTop: loadRasterAsset('assets/user-people-vehicles/motorcycle-top.png'),
+            motorcycleRiderFront: loadRasterAsset('assets/user-people-vehicles/motorcycle-rider-front.png'),
+            motorcycleRiderRear: loadRasterAsset('assets/user-people-vehicles/motorcycle-rider-rear.png')
         };
+
+        // Return the first raster that is ready to draw (graceful fallback chain).
+        function pickReadyRaster(...images) {
+            for (const img of images) if (isRasterReady(img)) return img;
+            return images[0];
+        }
 
         function loadRasterAsset(src) {
             const image = new Image();
@@ -597,6 +624,9 @@
 
         // Road name: live update as the user types
         roadNameInput.addEventListener('input', () => { roadName = roadNameInput.value; render(); saveState(); });
+
+        // Road name canvas position (original bottom slot vs directly above the cross-section)
+        roadNamePosSelect.addEventListener('change', () => { roadNamePos = roadNamePosSelect.value; render(); saveState(); });
 
         // Road width: changing the value while locked re-fits all segments to the new target
         roadWidthInput.addEventListener('change', () => {
@@ -916,6 +946,7 @@
                 leftSign: leftArcadeSign.value,
                 rightSign: rightArcadeSign.value,
                 roadName: roadName,
+                roadNamePos: roadNamePos,
                 roadWidthLocked: roadWidth.locked,
                 roadWidthValue: roadWidth.value
             };
@@ -930,6 +961,7 @@
             if (b.leftSign) leftArcadeSign.value = b.leftSign;
             if (b.rightSign) rightArcadeSign.value = b.rightSign;
             if (b.roadName !== undefined) { roadName = b.roadName; roadNameInput.value = b.roadName; }
+            if (b.roadNamePos === 'top' || b.roadNamePos === 'bottom') { roadNamePos = b.roadNamePos; roadNamePosSelect.value = b.roadNamePos; }
             if (b.roadWidthValue !== undefined) roadWidth.value = b.roadWidthValue;
             if (b.roadWidthLocked !== undefined) roadWidth.locked = b.roadWidthLocked;
             applyWidthLockUI();
@@ -1383,13 +1415,70 @@
             }, actionLabel ? 6000 : 3200);
         }
 
+        // 樹穴：剖面圖中樹木/綠籬基部的植栽穴（兩側緣石 + 內凹土壤 + 表土紋理）
+        function drawTreePit(ctx, scale, pitHalfW) {
+            ctx.save();
+            const curbW = 3.5 * scale;   // 緣石寬
+            const curbH = 4 * scale;     // 緣石露出高度
+            const soilDepth = 4 * scale; // 土壤內凹深度
+
+            // 內凹土壤
+            ctx.fillStyle = "#7a6a55";
+            ctx.beginPath();
+            ctx.rect(-pitHalfW, 0, pitHalfW * 2, soilDepth);
+            ctx.fill();
+
+            // 表土層（略淺色）
+            ctx.fillStyle = "#8d8276";
+            ctx.beginPath();
+            ctx.rect(-pitHalfW, 0, pitHalfW * 2, 1.6 * scale);
+            ctx.fill();
+
+            // 土壤紋理短撇
+            ctx.strokeStyle = "rgba(64, 58, 53, 0.55)";
+            ctx.lineWidth = 0.8;
+            ctx.lineCap = "round";
+            ctx.beginPath();
+            ctx.moveTo(-pitHalfW * 0.55, 2.2 * scale); ctx.lineTo(-pitHalfW * 0.38, 2.2 * scale);
+            ctx.moveTo(-pitHalfW * 0.05, 2.8 * scale); ctx.lineTo(pitHalfW * 0.12, 2.8 * scale);
+            ctx.moveTo(pitHalfW * 0.4, 2.1 * scale); ctx.lineTo(pitHalfW * 0.57, 2.1 * scale);
+            ctx.stroke();
+
+            // 兩側緣石（白底墨線，同平台線稿語彙）
+            ctx.fillStyle = "#f1f5f9";
+            ctx.strokeStyle = "#334155";
+            ctx.lineWidth = 1.2;
+            [-1, 1].forEach(side => {
+                const bx = side === -1 ? -pitHalfW - curbW : pitHalfW;
+                ctx.beginPath();
+                ctx.rect(bx, -curbH, curbW, curbH + soilDepth);
+                ctx.fill();
+                ctx.stroke();
+            });
+
+            // 穴口墨線
+            ctx.strokeStyle = "#334155";
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(-pitHalfW, 0);
+            ctx.lineTo(pitHalfW, 0);
+            ctx.stroke();
+            ctx.restore();
+        }
+
         // Render beautiful hand-drawn geometric watercolor tree exactly like the original 20M image
         function drawArtsyTree(ctx, x, y, scale, style = "fat") {
             ctx.save();
             ctx.translate(x, y);
 
             if (style === "hedge") {
-                // Low clipped hedge / shrub mass (~1m tall), same watercolor language as the trees
+                // 綠籬樹穴（先畫，讓綠籬坐在穴上）
+                drawTreePit(ctx, scale, 32 * scale * 0.8);
+
+                // Low clipped hedge / shrub mass, same watercolor language as the trees
+                // 依需求縮小：寬 x0.8、高 x0.5
+                ctx.save();
+                ctx.scale(0.8, 0.5);
                 // Overlapping translucent green lobes
                 ctx.fillStyle = "rgba(182, 219, 168, 0.55)";
                 ctx.beginPath();
@@ -1406,7 +1495,7 @@
 
                 // Ink-sketch outline strokes (loose bumps along the top)
                 ctx.strokeStyle = "#40513b";
-                ctx.lineWidth = 1.4;
+                ctx.lineWidth = 1.4 / 0.65; // 補償縮放後的線寬
                 ctx.lineCap = "round";
                 ctx.beginPath();
                 ctx.moveTo(-38 * scale, 0);
@@ -1417,23 +1506,21 @@
                 ctx.stroke();
 
                 // Tiny leaf texture ticks
-                ctx.lineWidth = 0.8;
+                ctx.lineWidth = 0.8 / 0.65;
                 ctx.strokeStyle = "rgba(64, 81, 59, 0.65)";
                 ctx.beginPath();
                 ctx.moveTo(-20 * scale, -18 * scale); ctx.lineTo(-16 * scale, -22 * scale);
                 ctx.moveTo(-4 * scale, -26 * scale); ctx.lineTo(0, -30 * scale);
                 ctx.moveTo(14 * scale, -20 * scale); ctx.lineTo(18 * scale, -24 * scale);
                 ctx.stroke();
-
-                // Soil base
-                ctx.fillStyle = "#8d8276";
-                ctx.beginPath();
-                ctx.ellipse(0, 0, 30 * scale, 2.5 * scale, 0, 0, Math.PI * 2);
-                ctx.fill();
+                ctx.restore();
 
                 ctx.restore();
                 return;
             }
+
+            // 樹穴（取代原本的土堆）：行道樹基部的植栽穴（在縮放變形前繪製，避免被壓扁）
+            drawTreePit(ctx, scale, (style === "slim" ? 10 : 14) * scale);
 
             if (style === "slim") {
                 ctx.scale(0.58, 1.08);
@@ -1514,12 +1601,6 @@
             ctx.moveTo(24 * scale, -76 * scale);
             ctx.quadraticCurveTo(34 * scale, -86 * scale, 40 * scale, -100 * scale);
             ctx.stroke();
-
-            // Earth soil support mound at base
-            ctx.fillStyle = "#8d8276";
-            ctx.beginPath();
-            ctx.ellipse(0, 0, 8 * scale, 2 * scale, 0, 0, Math.PI * 2);
-            ctx.fill();
 
             ctx.restore();
         }
@@ -2477,9 +2558,8 @@
                 ctx.translate(x, y);
                 if (direction === "away") ctx.rotate(Math.PI);
                 const carImg = rasterAssets.sedanTop;
-                const bikeImg = isRasterReady(rasterAssets.motorcycleTop)
-                    ? rasterAssets.motorcycleTop
-                    : rasterAssets.scooterAngle;
+                // 平面圖一律用正上視圖（機車優先，缺素材時回退）
+                const bikeImg = pickReadyRaster(rasterAssets.scooterTop, rasterAssets.motorcycleTop, rasterAssets.scooterAngle);
                 const carOffsetX = -Math.min(widthPx * 0.19, 24);
                 const bikeOffsetX = Math.min(widthPx * 0.24, 30);
                 if (isRasterReady(carImg)) {
@@ -2502,11 +2582,9 @@
                 modern_front_red: rasterAssets.suvTop,
                 convertible: rasterAssets.convertibleTop,
                 truck: rasterAssets.truckTop,
-                scooter: rasterAssets.scooterAngle,
-                // 車道上的機車改用正上視圖（缺素材時回退為斜視圖）
-                motorcycle: isRasterReady(rasterAssets.motorcycleTop)
-                    ? rasterAssets.motorcycleTop
-                    : rasterAssets.motorcycleAngle
+                // 平面圖上的機車/重機一律用正上視圖（缺素材時回退為斜視圖）
+                scooter: pickReadyRaster(rasterAssets.scooterTop, rasterAssets.scooterAngle),
+                motorcycle: pickReadyRaster(rasterAssets.motorcycleTop, rasterAssets.motorcycleAngle)
             };
             const topImage = topImages[type] || rasterAssets.sedanTop;
             if (isRasterReady(topImage)) {
@@ -2515,7 +2593,8 @@
                 if (direction === "away") ctx.rotate(Math.PI);
                 const isTwoWheeler = type === "scooter" || type === "motorcycle";
                 if (isTwoWheeler) {
-                    const drawHeight = type === "motorcycle" ? 58 : 52;
+                    // 重機明顯比機車長（機車縮小、重機加大）
+                    const drawHeight = type === "motorcycle" ? 62 : 48;
                     const drawWidth = drawHeight * (topImage.naturalWidth / topImage.naturalHeight);
                     ctx.drawImage(topImage, -drawWidth / 2, -drawHeight / 2, drawWidth, drawHeight);
                 } else {
@@ -2755,6 +2834,314 @@
             ctx.restore();
         }
 
+        // 兩側環境的人物（河岸步道 / 綠地草地上），沿用騎樓人物素材
+        function drawSideZonePerson(ctx, personX, groundY, personType, side) {
+            if (!personType || personType === "none") return;
+            const people = {
+                ped1: rasterAssets.dogWalker,
+                ped2: rasterAssets.parentChild,
+                ped3: rasterAssets.cityWalker,
+                ped4: rasterAssets.jogger,
+                ped5: rasterAssets.shopper,
+                ped6: rasterAssets.wheelchair,
+                ped7: rasterAssets.elderly
+            };
+            const pedHeights = { ped6: 50, ped7: 64 };
+            drawRasterAtGroundFacing(ctx, people[personType] || rasterAssets.cityWalker,
+                personX, groundY - 2, pedHeights[personType] || 68, side === "right");
+        }
+
+        // ── 河岸（剖面）：堤頂步道＋欄杆 → 護坡（砌石紋理）→ 水面（水彩波紋＋蘆葦）──
+        function drawRiverside(ctx, x, width, groundY, side, personType) {
+            const dir = side === "left" ? -1 : 1;                 // 朝外（離開道路）方向
+            const streetEdgeX = side === "left" ? x + width : x;  // 貼道路那一側
+            const outerX = side === "left" ? x : x + width;       // 畫面外側
+            const curbShift = 4.5;
+            const topY = groundY - curbShift;                     // 堤頂步道面（與人行道緣石同高）
+            const promW = Math.max(26, width * 0.36);             // 堤頂步道寬
+            const slopeW = Math.max(20, width * 0.28);            // 護坡水平投影寬
+            const promEndX = streetEdgeX + dir * promW;
+            const slopeToeX = promEndX + dir * slopeW;
+            const waterY = groundY + 30;                          // 水面低於路面（河比路低）
+
+            ctx.save();
+            ctx.lineCap = "round";
+            ctx.lineJoin = "round";
+
+            // 1) 堤頂步道（白色鋪面 + 深色頂線，接續人行道緣石語彙）
+            ctx.fillStyle = "#ffffff";
+            ctx.fillRect(Math.min(streetEdgeX, promEndX), topY, promW, curbShift);
+            ctx.strokeStyle = "#1e293b";
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.moveTo(streetEdgeX, topY);
+            ctx.lineTo(promEndX, topY);
+            ctx.stroke();
+
+            // 2) 護坡（堤防斜面，砌石短撇紋理）
+            ctx.fillStyle = "#e7dfd2";
+            ctx.beginPath();
+            ctx.moveTo(promEndX, topY);
+            ctx.lineTo(promEndX, groundY);
+            ctx.lineTo(slopeToeX, waterY);
+            ctx.lineTo(promEndX + dir * (slopeW + 10), waterY);
+            ctx.lineTo(promEndX, topY);
+            ctx.closePath();
+            ctx.fill();
+            ctx.strokeStyle = "#64748b";
+            ctx.lineWidth = 1.6;
+            ctx.beginPath();
+            ctx.moveTo(promEndX, topY);
+            ctx.lineTo(slopeToeX, waterY);
+            ctx.stroke();
+            // 砌石紋理（沿斜面短撇）
+            ctx.strokeStyle = "rgba(100, 116, 139, 0.55)";
+            ctx.lineWidth = 0.9;
+            ctx.beginPath();
+            for (let i = 1; i <= 3; i++) {
+                const t = i / 4;
+                const sx = promEndX + dir * slopeW * t;
+                const sy = topY + (waterY - topY) * t;
+                ctx.moveTo(sx, sy);
+                ctx.lineTo(sx - dir * 7, sy + 3);
+            }
+            ctx.stroke();
+
+            // 3) 水面（水彩藍暈染 + 兩道波紋 + 反光短劃）
+            const waterStartX = Math.min(slopeToeX, outerX);
+            const waterWidth = Math.abs(outerX - slopeToeX);
+            ctx.fillStyle = "rgba(147, 197, 253, 0.45)";
+            ctx.fillRect(side === "left" ? outerX : slopeToeX, waterY, waterWidth, 18);
+            ctx.fillStyle = "rgba(96, 165, 250, 0.25)";
+            ctx.fillRect(side === "left" ? outerX : slopeToeX, waterY + 18, waterWidth, 8);
+            // 波紋（手繪起伏線）
+            ctx.strokeStyle = "#3b82f6";
+            ctx.lineWidth = 1.4;
+            [0, 7].forEach(dy => {
+                ctx.beginPath();
+                const y0 = waterY + 2 + dy;
+                let wx = waterStartX;
+                ctx.moveTo(wx, y0);
+                while (wx < waterStartX + waterWidth - 8) {
+                    ctx.quadraticCurveTo(wx + 4, y0 - 2.5, wx + 8, y0);
+                    ctx.quadraticCurveTo(wx + 12, y0 + 2.5, wx + 16, y0);
+                    wx += 16;
+                }
+                ctx.stroke();
+            });
+            // 反光短劃
+            ctx.strokeStyle = "rgba(255,255,255,0.85)";
+            ctx.lineWidth = 1.6;
+            ctx.beginPath();
+            ctx.moveTo(waterStartX + waterWidth * 0.3, waterY + 13);
+            ctx.lineTo(waterStartX + waterWidth * 0.3 + 9, waterY + 13);
+            ctx.moveTo(waterStartX + waterWidth * 0.62, waterY + 16);
+            ctx.lineTo(waterStartX + waterWidth * 0.62 + 7, waterY + 16);
+            ctx.stroke();
+
+            // 4) 欄杆（堤頂步道外緣，直杆 + 雙橫桿）
+            const railX0 = promEndX - dir * 4;   // 靠護坡端
+            const railH = 30;                    // 約 0.9m
+            ctx.strokeStyle = "#475569";
+            ctx.lineWidth = 1.8;
+            ctx.beginPath();
+            for (let i = 0; i < 3; i++) {
+                const px = railX0 - dir * i * (promW - 10) / 2.4;
+                ctx.moveTo(px, topY);
+                ctx.lineTo(px, topY - railH);
+            }
+            // 上下橫桿
+            const railInnerX = railX0 - dir * 2 * (promW - 10) / 2.4;
+            ctx.moveTo(railX0, topY - railH);
+            ctx.lineTo(railInnerX, topY - railH);
+            ctx.moveTo(railX0, topY - railH * 0.55);
+            ctx.lineTo(railInnerX, topY - railH * 0.55);
+            ctx.stroke();
+            // 扶手頂端加粗
+            ctx.lineWidth = 2.6;
+            ctx.beginPath();
+            ctx.moveTo(railX0, topY - railH);
+            ctx.lineTo(railInnerX, topY - railH);
+            ctx.stroke();
+
+            // 5) 蘆葦（坡腳水際，綠色細長葉 + 香蒲頭）
+            const reedBaseX = slopeToeX + dir * 3;
+            ctx.strokeStyle = "#4d7c0f";
+            ctx.lineWidth = 1.3;
+            [[-4, 22], [0, 28], [4, 20]].forEach(([off, h]) => {
+                ctx.beginPath();
+                ctx.moveTo(reedBaseX + off, waterY + 2);
+                ctx.quadraticCurveTo(reedBaseX + off + dir * 3, waterY - h * 0.6, reedBaseX + off + dir * 5, waterY - h);
+                ctx.stroke();
+            });
+            // 香蒲頭
+            ctx.fillStyle = "#854d0e";
+            ctx.beginPath();
+            ctx.ellipse(reedBaseX + dir * 5, waterY - 26, 1.8, 5, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            // 6) 人物站在堤頂步道
+            drawSideZonePerson(ctx, streetEdgeX + dir * promW * 0.45, topY, personType, side);
+
+            ctx.restore();
+        }
+
+        // ── 綠地（剖面）：草坡水彩暈染＋喬木＋灌木叢＋草叢 ──
+        function drawGreenland(ctx, x, width, groundY, side, personType) {
+            const dir = side === "left" ? -1 : 1;
+            const streetEdgeX = side === "left" ? x + width : x;
+            const outerX = side === "left" ? x : x + width;
+            const curbShift = 4.5;
+            const topY = groundY - curbShift;   // 草地面（與人行道緣石同高）
+
+            ctx.save();
+            ctx.lineCap = "round";
+            ctx.lineJoin = "round";
+
+            // 1) 草地基帶（淺綠 + 深色頂線，接續人行道）
+            ctx.fillStyle = "#dcead0";
+            ctx.fillRect(Math.min(x, x + width), topY, width, curbShift);
+            ctx.strokeStyle = "#1e293b";
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.moveTo(streetEdgeX, topY);
+            ctx.lineTo(outerX, topY);
+            ctx.stroke();
+
+            // 2) 草坡水彩暈染（兩層柔和土丘 + 墨線起伏）
+            const midX = x + width / 2;
+            ctx.fillStyle = "rgba(182, 219, 168, 0.5)";
+            ctx.beginPath();
+            ctx.ellipse(midX - width * 0.18, topY, width * 0.34, 10, 0, Math.PI, 0);
+            ctx.ellipse(midX + width * 0.22, topY, width * 0.3, 7, 0, Math.PI, 0);
+            ctx.fill();
+            ctx.fillStyle = "rgba(134, 183, 148, 0.35)";
+            ctx.beginPath();
+            ctx.ellipse(midX + width * 0.05, topY, width * 0.4, 5.5, 0, Math.PI, 0);
+            ctx.fill();
+            ctx.strokeStyle = "rgba(64, 81, 59, 0.6)";
+            ctx.lineWidth = 1.1;
+            ctx.beginPath();
+            ctx.moveTo(streetEdgeX, topY - 1);
+            ctx.quadraticCurveTo(midX - width * 0.2, topY - 9, midX, topY - 4);
+            ctx.quadraticCurveTo(midX + width * 0.25, topY - 8, outerX, topY - 2);
+            ctx.stroke();
+
+            // 3) 喬木（重用手繪水彩樹，含樹穴）
+            drawArtsyTree(ctx, midX + dir * width * 0.16, topY, 0.85, "fat");
+
+            // 4) 灌木叢（靠道路側的小型修剪灌木）
+            const shrubX = streetEdgeX + dir * width * 0.16;
+            ctx.fillStyle = "rgba(134, 183, 148, 0.55)";
+            ctx.beginPath();
+            ctx.ellipse(shrubX - 6, topY - 6, 9, 7, 0, 0, Math.PI * 2);
+            ctx.ellipse(shrubX + 5, topY - 7, 8, 8, 0, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.strokeStyle = "#40513b";
+            ctx.lineWidth = 1.1;
+            ctx.beginPath();
+            ctx.moveTo(shrubX - 14, topY);
+            ctx.quadraticCurveTo(shrubX - 12, topY - 13, shrubX, topY - 14);
+            ctx.quadraticCurveTo(shrubX + 12, topY - 14, shrubX + 13, topY);
+            ctx.stroke();
+
+            // 5) 草叢短撇（散佈的 V 形草叢）
+            ctx.strokeStyle = "rgba(77, 124, 15, 0.75)";
+            ctx.lineWidth = 1;
+            [[0.08, 5], [0.35, 6], [0.6, 4], [0.85, 6]].forEach(([t, h]) => {
+                const gx = x + width * t;
+                ctx.beginPath();
+                ctx.moveTo(gx - 2.5, topY); ctx.lineTo(gx - 1, topY - h);
+                ctx.moveTo(gx, topY); ctx.lineTo(gx, topY - h - 1.5);
+                ctx.moveTo(gx + 2.5, topY); ctx.lineTo(gx + 1, topY - h);
+                ctx.stroke();
+            });
+
+            // 6) 人物站在草地上（靠道路側）
+            drawSideZonePerson(ctx, streetEdgeX + dir * width * 0.32, topY, personType, side);
+
+            ctx.restore();
+        }
+
+        // ── 河岸（平面）：堤頂步道帶 → 護坡綠帶 → 水面（縱向波紋）──
+        function drawRiversidePlan(ctx, x, width, topY, height, side) {
+            const dir = side === "left" ? -1 : 1;
+            const streetEdgeX = side === "left" ? x + width : x;
+            const promW = Math.max(14, width * 0.3);
+            const bankW = Math.max(10, width * 0.22);
+
+            ctx.save();
+            // 水面底色（整帶先鋪水，前景再疊步道/護坡）
+            ctx.fillStyle = "#bfdbfe";
+            ctx.fillRect(x, topY, width, height);
+
+            // 堤頂步道帶（貼道路側）
+            const promX = side === "left" ? streetEdgeX - promW : streetEdgeX;
+            ctx.fillStyle = "#e5e7eb";
+            ctx.fillRect(promX, topY, promW, height);
+            // 護坡綠帶
+            const bankX = side === "left" ? promX - bankW : promX + promW;
+            ctx.fillStyle = "#cfe3c0";
+            ctx.fillRect(bankX, topY, bankW, height);
+            // 護坡邊線（虛線 = 坡頂/坡腳）
+            ctx.strokeStyle = "#7c8f74";
+            ctx.lineWidth = 1.2;
+            ctx.setLineDash([7, 5]);
+            ctx.beginPath();
+            ctx.moveTo(bankX + (side === "left" ? bankW : 0), topY);
+            ctx.lineTo(bankX + (side === "left" ? bankW : 0), topY + height);
+            ctx.moveTo(bankX + (side === "left" ? 0 : bankW), topY);
+            ctx.lineTo(bankX + (side === "left" ? 0 : bankW), topY + height);
+            ctx.stroke();
+            ctx.setLineDash([]);
+
+            // 水面縱向波紋（沿道路方向的手繪起伏線）
+            const waterX0 = side === "left" ? x : bankX + bankW;
+            const waterW = width - promW - bankW;
+            ctx.strokeStyle = "rgba(59, 130, 246, 0.7)";
+            ctx.lineWidth = 1.3;
+            [0.3, 0.65].forEach(t => {
+                const wx = waterX0 + waterW * t;
+                ctx.beginPath();
+                let wy = topY + 4;
+                ctx.moveTo(wx, wy);
+                while (wy < topY + height - 10) {
+                    ctx.quadraticCurveTo(wx - 2.5, wy + 5, wx, wy + 10);
+                    ctx.quadraticCurveTo(wx + 2.5, wy + 15, wx, wy + 20);
+                    wy += 20;
+                }
+                ctx.stroke();
+            });
+            ctx.restore();
+        }
+
+        // ── 綠地（平面）：草地帶＋樹冠圓＋草點 ──
+        function drawGreenPlan(ctx, x, width, topY, height, side) {
+            ctx.save();
+            ctx.fillStyle = "#d9e7cb";
+            ctx.fillRect(x, topY, width, height);
+
+            // 樹冠（半透明綠圓，錯落兩三株）
+            const cx = x + width / 2;
+            ctx.fillStyle = "rgba(79, 140, 77, 0.42)";
+            ctx.strokeStyle = "#3f7d44";
+            ctx.lineWidth = 1.1;
+            [[0.28, 16], [0.62, 12], [0.9, 14]].forEach(([t, r]) => {
+                ctx.beginPath();
+                ctx.arc(cx, topY + height * t, r, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.stroke();
+            });
+            // 草地紋理小點
+            ctx.fillStyle = "rgba(77, 124, 15, 0.4)";
+            for (let i = 0; i < 14; i++) {
+                const gx = x + 6 + ((i * 37) % Math.max(8, width - 12));
+                const gy = topY + 8 + ((i * 53) % (height - 16));
+                ctx.fillRect(gx, gy, 2, 2);
+            }
+            ctx.restore();
+        }
+
         // Hand-drawn style cyclist (front view) for dedicated bike lanes
         function drawCyclistFront(ctx, x, y, scale) {
             ctx.save();
@@ -2918,33 +3305,35 @@
                 return;
             }
             if (seg.car === "scooter") {
-                drawRasterAtGround(ctx, rasterAssets.scooterFront, x, groundY + 2, 64);
+                // 車道上行駛中的機車：剖面用「含騎士」版本，依行駛方向切換正/背面（機車比重機小台）
+                const scooterElev = elevationFacesFront
+                    ? pickReadyRaster(rasterAssets.scooterRiderFront, rasterAssets.scooterFront)
+                    : pickReadyRaster(rasterAssets.scooterRiderRear, rasterAssets.scooterRiderFront, rasterAssets.scooterFront);
+                drawRasterAtGround(ctx, scooterElev, x, groundY + 2, 58);
                 return;
             }
             if (seg.car === "motorcycle") {
-                // 依行駛方向切換車頭／車尾視角（缺車尾素材時回退為車頭）
-                if (elevationFacesFront || !isRasterReady(rasterAssets.motorcycleRear)) {
-                    drawRasterAtGround(ctx, rasterAssets.motorcycleFront, x, groundY + 2, 64);
-                } else {
-                    drawRasterAtGround(ctx, rasterAssets.motorcycleRear, x, groundY + 2, 64);
-                }
+                // 車道上行駛中的重機：剖面用「含騎士」版本，依行駛方向切換正/背面（重機比機車大台）
+                const motoElev = elevationFacesFront
+                    ? pickReadyRaster(rasterAssets.motorcycleRiderFront, rasterAssets.motorcycleFront)
+                    : pickReadyRaster(rasterAssets.motorcycleRiderRear, rasterAssets.motorcycleRear, rasterAssets.motorcycleRiderFront, rasterAssets.motorcycleFront);
+                drawRasterAtGround(ctx, motoElev, x, groundY + 2, 70);
                 return;
             }
             if (seg.car === "car_scooter") {
                 // 汽車＋機車併行：小台轎車靠一側，機車在另一側
-                // 依行駛方向整組切換：看車頭 → 車頭＋機車正面；看車尾 → 車尾＋機車背面
+                // 依行駛方向整組切換：看車頭 → 車頭＋機車(騎士)正面；看車尾 → 車尾＋機車(騎士)背面
                 const spread = laneWidthPx ? Math.min(laneWidthPx * 0.24, 34) : 30;
-                // 汽車略小於一般車道車輛；機車比汽車矮（約真實比例 1.1m : 1.45m）
+                // 汽車略小於一般車道車輛
                 const smallCarScale = 1.15 * carScale * classicSquish;
-                const bikeHeight = 42;
+                const bikeHeight = 52; // 含騎士的高度
                 if (elevationFacesFront) {
                     drawClassicCarFront(ctx, x - spread, groundY, smallCarScale, "#ffffff");
-                    drawRasterAtGround(ctx, rasterAssets.scooterFront, x + spread + 6, groundY + 2, bikeHeight);
+                    const frontBike = pickReadyRaster(rasterAssets.scooterRiderFront, rasterAssets.scooterFront);
+                    drawRasterAtGround(ctx, frontBike, x + spread + 6, groundY + 2, bikeHeight);
                 } else {
                     drawClassicCarRear(ctx, x - spread, groundY, smallCarScale, "#ffffff");
-                    const rearBike = isRasterReady(rasterAssets.motorcycleRear)
-                        ? rasterAssets.motorcycleRear
-                        : rasterAssets.scooterFront;
+                    const rearBike = pickReadyRaster(rasterAssets.scooterRiderRear, rasterAssets.motorcycleRear, rasterAssets.scooterFront);
                     drawRasterAtGround(ctx, rearBike, x + spread + 6, groundY + 2, bikeHeight);
                 }
                 return;
@@ -2967,10 +3356,16 @@
         // Building heights are fixed-pixel (see drawArcadeBuilding: arcade 132px + 112px per upper
         // floor), so the section band shrinks/grows with the tallest selected building.
         function computeLayout() {
-            const leftF = parseInt(leftBuildingFloors.value, 10) || 3;
-            const rightF = parseInt(rightBuildingFloors.value, 10) || 4;
-            const maxFloors = Math.max(leftF, rightF);
-            const buildingHeightPx = 132 + ((maxFloors - 1) * 112); // mirrors drawArcadeBuilding
+            // 側帶高度：騎樓依樓層；河岸/綠地為低矮帶（樹高 + 餘裕）
+            const sideProfileHeight = (v) => {
+                if (v === 'river' || v === 'green') return 150;
+                const f = parseInt(v, 10) || 3;
+                return 132 + ((f - 1) * 112); // mirrors drawArcadeBuilding
+            };
+            const buildingHeightPx = Math.max(
+                sideProfileHeight(leftBuildingFloors.value),
+                sideProfileHeight(rightBuildingFloors.value)
+            );
             const elevationY = 40 + buildingHeightPx;      // 40px breathing room above the roofline
             const labelSectionY = elevationY + 200;        // section name labels occupy elevationY..+185
             const topViewY = elevationY + 290;
@@ -3013,37 +3408,42 @@
             const topViewY = layout.topViewY;             // Plan / top-down view sits BELOW the cross-section
             const topViewHeight = layout.topViewHeight;
 
-            // --- RENDER LEFT & RIGHT ARCADE BUILDINGS ---
+            // --- RENDER LEFT & RIGHT SIDE ZONES (騎樓建築 / 河岸 / 綠地) ---
             const buildingWidthPx = buildingWidthM * pxPerMeter;
             const rightBuildingStartX = startX + (totalMeters * pxPerMeter);
-            const leftFloors = parseInt(leftBuildingFloors.value, 10) || 3;
-            const rightFloors = parseInt(rightBuildingFloors.value, 10) || 4;
+            const leftZoneMode = leftBuildingFloors.value;    // '2'/'3'/'4' | 'river' | 'green'
+            const rightZoneMode = rightBuildingFloors.value;
+            const leftIsBuilding = leftZoneMode !== 'river' && leftZoneMode !== 'green';
+            const rightIsBuilding = rightZoneMode !== 'river' && rightZoneMode !== 'green';
+            const leftFloors = parseInt(leftZoneMode, 10) || 3;
+            const rightFloors = parseInt(rightZoneMode, 10) || 4;
 
             if (toggleTopView.checked) {
-                drawArcadePlan(targetCtx, 50, buildingWidthPx, topViewY, topViewHeight, "left");
-                drawArcadePlan(targetCtx, rightBuildingStartX, buildingWidthPx, topViewY, topViewHeight, "right");
+                if (leftZoneMode === 'river') drawRiversidePlan(targetCtx, 50, buildingWidthPx, topViewY, topViewHeight, "left");
+                else if (leftZoneMode === 'green') drawGreenPlan(targetCtx, 50, buildingWidthPx, topViewY, topViewHeight, "left");
+                else drawArcadePlan(targetCtx, 50, buildingWidthPx, topViewY, topViewHeight, "left");
+
+                if (rightZoneMode === 'river') drawRiversidePlan(targetCtx, rightBuildingStartX, buildingWidthPx, topViewY, topViewHeight, "right");
+                else if (rightZoneMode === 'green') drawGreenPlan(targetCtx, rightBuildingStartX, buildingWidthPx, topViewY, topViewHeight, "right");
+                else drawArcadePlan(targetCtx, rightBuildingStartX, buildingWidthPx, topViewY, topViewHeight, "right");
             }
 
-            drawArcadeBuilding(
-                targetCtx,
-                50,
-                buildingWidthPx,
-                elevationY,
-                leftFloors,
-                "left",
-                toggleDecorations.checked ? leftArcadePeople.value : "none",
-                leftArcadeSign.value
-            );
-            drawArcadeBuilding(
-                targetCtx,
-                rightBuildingStartX,
-                buildingWidthPx,
-                elevationY,
-                rightFloors,
-                "right",
-                toggleDecorations.checked ? rightArcadePeople.value : "none",
-                rightArcadeSign.value
-            );
+            const leftPerson = toggleDecorations.checked ? leftArcadePeople.value : "none";
+            const rightPerson = toggleDecorations.checked ? rightArcadePeople.value : "none";
+            if (leftZoneMode === 'river') {
+                drawRiverside(targetCtx, 50, buildingWidthPx, elevationY, "left", leftPerson);
+            } else if (leftZoneMode === 'green') {
+                drawGreenland(targetCtx, 50, buildingWidthPx, elevationY, "left", leftPerson);
+            } else {
+                drawArcadeBuilding(targetCtx, 50, buildingWidthPx, elevationY, leftFloors, "left", leftPerson, leftArcadeSign.value);
+            }
+            if (rightZoneMode === 'river') {
+                drawRiverside(targetCtx, rightBuildingStartX, buildingWidthPx, elevationY, "right", rightPerson);
+            } else if (rightZoneMode === 'green') {
+                drawGreenland(targetCtx, rightBuildingStartX, buildingWidthPx, elevationY, "right", rightPerson);
+            } else {
+                drawArcadeBuilding(targetCtx, rightBuildingStartX, buildingWidthPx, elevationY, rightFloors, "right", rightPerson, rightArcadeSign.value);
+            }
 
             // --- DYNAMIC RENDER SEGMENTS ---
             let currentX = startX;
@@ -3286,7 +3686,8 @@
                 }
 
                 // Continue the raised sidewalk section line into the arcade floor.
-                if (seg.type === 'sidewalk' && index === 0) {
+                // (河岸/綠地側帶自行繪製同高的地面帶，這裡僅騎樓需要補白)
+                if (seg.type === 'sidewalk' && index === 0 && leftIsBuilding) {
                     targetCtx.fillStyle = "#ffffff";
                     targetCtx.fillRect(50, elevationY - curbShift, startX - 50, curbShift);
                     targetCtx.strokeStyle = "#1e293b";
@@ -3296,7 +3697,7 @@
                     targetCtx.lineTo(currentX + segWidthPx, elevationY - curbShift);
                     targetCtx.stroke();
                 }
-                if (seg.type === 'sidewalk' && index === segments.length - 1) {
+                if (seg.type === 'sidewalk' && index === segments.length - 1 && rightIsBuilding) {
                     const buildingOuterX = rightBuildingStartX + buildingWidthPx;
                     targetCtx.fillStyle = "#ffffff";
                     targetCtx.fillRect(rightBuildingStartX, elevationY - curbShift, buildingWidthPx, curbShift);
@@ -3336,7 +3737,8 @@
                             // 停放機車放大 1.2 倍
                             drawParkedSprite(targetCtx, rasterAssets.scooterSide, midX, parkGroundY, 50.4, parkMaxWidth);
                         } else if (seg.car === 'motorcycle') {
-                            drawParkedSprite(targetCtx, rasterAssets.motorcycleSide, midX, parkGroundY, 42, parkMaxWidth);
+                            // 重機停放要比機車大台
+                            drawParkedSprite(targetCtx, rasterAssets.motorcycleSide, midX, parkGroundY, 54, parkMaxWidth);
                         } else {
                             // Render the parked car exactly like the matching lane car (same size + ground line).
                             drawLaneVehicle(targetCtx, seg, midX, parkGroundY, segWidthPx);
@@ -3511,13 +3913,12 @@
             const bottomBracketY = layout.bottomBracketY;
             drawTotalWidthBracket(bottomBracketY);             // Below the plan view
 
-            // --- ROAD NAME TITLE (centered, directly above the total-width label) ---
+            // --- ROAD NAME TITLE (position selectable: bottom slot, or directly above the cross-section) ---
             if (roadName && roadName.trim()) {
                 const rnText = roadName.trim();
                 const rnCenterX = startX + (totalMeters * pxPerMeter) / 2;  // same center as the 路幅總寬度 label
                 const rnPadX = 13;
-                const drawRoadName = (bracketY) => {
-                    const rnY = bracketY - 28;          // sit just above the 路幅總寬度 label pill
+                const drawRoadNameAt = (rnY) => {
                     targetCtx.font = "bold 16px 'Noto Sans TC'";
                     targetCtx.textAlign = "center";
                     targetCtx.textBaseline = "middle";
@@ -3530,7 +3931,11 @@
                     targetCtx.fillStyle = "#ffffff";
                     targetCtx.fillText(rnText, rnCenterX, rnY + 1);
                 };
-                drawRoadName(bottomBracketY);           // Above the bottom 路幅總寬度 label
+                if (roadNamePos === 'top') {
+                    drawRoadNameAt(22);                     // 剖面圖正上方（屋頂線上方的留白帶置中）
+                } else {
+                    drawRoadNameAt(bottomBracketY - 28);    // 原位置：路幅總寬度標籤正上方
+                }
             }
 
             // --- LEFT / RIGHT PEDESTRIAN-REALM SUB-BRACKETS ---
